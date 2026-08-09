@@ -8,7 +8,7 @@ Unified documentation: [spiceframework.dev/framework](https://spiceframework.dev
 > history-preserving topology and acceptance ledger are documented in
 > [ADR 0012](adrs/0012-multi-repository-product-boundaries.md) and the
 > [repository migration ledger](docs/repository-migration.md). Until the first
-> signed preview is published, the project remains pre-alpha.
+> authenticated preview is published, the project remains pre-alpha.
 
 Organization governance and cross-repository development tooling now live at
 [`spice-framework/.github`](https://github.com/spice-framework/.github) and
@@ -309,8 +309,8 @@ go tool github.com/spice-framework/toolchain/cmd/spice dev --target Commerce .
 Use `make fast` for changed packages and their reverse dependency closure, then
 `make check` for the broader core-library loop. Run `make verify` on the exact
 tree before committing. `make verify-release` is the unconditional full-gate
-entrypoint used by the protected, source-only core release workflow; its trust
-anchor and approval model are documented in
+entrypoint used by the protected keyless source-release workflow; its exact
+workflow identity, portable provenance, and approval model are documented in
 [`docs/releasing.md`](docs/releasing.md). Toolchain binary release automation
 and performance budgets run in the standalone toolchain repository.
 

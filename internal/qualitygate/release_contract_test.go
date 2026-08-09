@@ -1,9 +1,6 @@
 package main
 
 import (
-	"crypto/ed25519"
-	"crypto/x509"
-	"encoding/pem"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,17 +54,35 @@ func TestCheckReleaseWorkflow(t *testing.T) {
 		{name: "missing job permission", mutate: func(content string) string {
 			return strings.Replace(content, "    permissions:\n      contents: write\n", "", 1)
 		}, wantErr: true},
-		{name: "missing signing secret", mutate: func(content string) string {
-			return strings.Replace(content, "    secrets:\n      SPICE_LIBRARY_RELEASE_SIGNING_KEY: ${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}\n", "", 1)
+		{name: "missing contents permission", mutate: func(content string) string {
+			return strings.Replace(content, "      contents: write\n", "", 1)
+		}, wantErr: true},
+		{name: "missing OIDC permission", mutate: func(content string) string {
+			return strings.Replace(content, "      id-token: write\n", "", 1)
+		}, wantErr: true},
+		{name: "missing attestation permission", mutate: func(content string) string {
+			return strings.Replace(content, "      attestations: write\n", "", 1)
+		}, wantErr: true},
+		{name: "missing artifact metadata permission", mutate: func(content string) string {
+			return strings.Replace(content, "      artifact-metadata: write\n", "", 1)
+		}, wantErr: true},
+		{name: "extra package permission", mutate: func(content string) string {
+			return strings.Replace(content, "      artifact-metadata: write\n", "      artifact-metadata: write\n      packages: write\n", 1)
 		}, wantErr: true},
 		{name: "inherited secrets", mutate: func(content string) string {
-			return strings.Replace(content, "    secrets:\n      SPICE_LIBRARY_RELEASE_SIGNING_KEY: ${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}\n", "    secrets: inherit\n", 1)
+			return content + "    secrets: inherit\n"
 		}, wantErr: true},
-		{name: "additional secret", mutate: func(content string) string {
-			return strings.Replace(content, "      SPICE_LIBRARY_RELEASE_SIGNING_KEY: ${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}\n", "      SPICE_LIBRARY_RELEASE_SIGNING_KEY: ${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}\n      UNRELATED_SECRET: ${{ secrets.UNRELATED_SECRET }}\n", 1)
+		{name: "named secret", mutate: func(content string) string {
+			return content + "    secrets:\n      TOKEN: ${{ secrets.TOKEN }}\n"
 		}, wantErr: true},
-		{name: "wrong secret source", mutate: func(content string) string {
-			return strings.Replace(content, "${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}", "${{ secrets.OTHER_KEY }}", 1)
+		{name: "wrong workflow commit input", mutate: func(content string) string {
+			return strings.Replace(content, "      workflow_commit: "+releaseWorkflowRevision, "      workflow_commit: "+strings.Repeat("0", 40), 1)
+		}, wantErr: true},
+		{name: "distribution workflow", mutate: func(content string) string {
+			return strings.Replace(content, "go-module-release.yml", "go-distribution-release.yml", 1)
+		}, wantErr: true},
+		{name: "extra job", mutate: func(content string) string {
+			return content + "\n  bypass:\n    runs-on: ubuntu-latest\n"
 		}, wantErr: true},
 	}
 	for _, test := range tests {
@@ -89,47 +104,52 @@ func TestCheckReleaseWorkflow(t *testing.T) {
 	}
 }
 
-func TestCheckReleasePublicKey(t *testing.T) {
+func TestCheckReleaseIntent(t *testing.T) {
 	t.Parallel()
-	repository, err := repositoryRoot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	content, err := os.ReadFile(filepath.Join(repository, "security", "release", "ed25519-public.pem"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	differentDER, err := x509.MarshalPKIXPublicKey(ed25519.PublicKey(make([]byte, ed25519.PublicKeySize)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	differentKey := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: differentDER})
 	tests := []struct {
 		name    string
-		content []byte
+		content string
 		wantErr bool
 	}{
-		{name: "exact trust anchor", content: content},
-		{name: "malformed PEM", content: []byte("not a public key\n"), wantErr: true},
-		{name: "different valid Ed25519 key", content: differentKey, wantErr: true},
-		{name: "trailing PEM", content: append(append([]byte(nil), content...), content...), wantErr: true},
+		{name: "exact intent", content: expectedReleaseIntent()},
+		{name: "wrong version", content: strings.Replace(expectedReleaseIntent(), releaseVersion, "v0.1.0-preview.1", 1), wantErr: true},
+		{name: "wrong schema", content: strings.Replace(expectedReleaseIntent(), "\"schema\": 1", "\"schema\": 2", 1), wantErr: true},
+		{name: "wrong profile", content: strings.Replace(expectedReleaseIntent(), "go-module-v1", "go-distribution-v1", 1), wantErr: true},
+		{name: "wrong repository", content: strings.Replace(expectedReleaseIntent(), "\"repository\": \"spice\"", "\"repository\": \"other\"", 1), wantErr: true},
+		{name: "wrong module", content: strings.Replace(expectedReleaseIntent(), modulePath, modulePath+"-wrong", 1), wantErr: true},
+		{name: "unknown field", content: strings.Replace(expectedReleaseIntent(), "\n}", ",\n  \"extra\": true\n}", 1), wantErr: true},
+		{name: "trailing JSON", content: expectedReleaseIntent() + "{}\n", wantErr: true},
+		{name: "noncanonical spacing", content: strings.Replace(expectedReleaseIntent(), "  \"schema\"", " \"schema\"", 1), wantErr: true},
+		{name: "missing final newline", content: strings.TrimSuffix(expectedReleaseIntent(), "\n"), wantErr: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			root := t.TempDir()
-			path := filepath.Join(root, "security", "release", "ed25519-public.pem")
-			if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+			path := filepath.Join(root, "spice-release.json")
+			if err := os.WriteFile(path, []byte(test.content), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(path, test.content, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			err := checkReleasePublicKey(root)
+			err := checkReleaseIntent(root)
 			if (err != nil) != test.wantErr {
-				t.Fatalf("checkReleasePublicKey() error = %v, wantErr %v", err, test.wantErr)
+				t.Fatalf("checkReleaseIntent() error = %v, wantErr %v", err, test.wantErr)
 			}
 		})
 	}
+	t.Run("missing intent", func(t *testing.T) {
+		t.Parallel()
+		if err := checkReleaseIntent(t.TempDir()); err == nil {
+			t.Fatal("checkReleaseIntent() error = nil")
+		}
+	})
+	t.Run("intent is directory", func(t *testing.T) {
+		t.Parallel()
+		root := t.TempDir()
+		if err := os.Mkdir(filepath.Join(root, "spice-release.json"), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := checkReleaseIntent(root); err == nil {
+			t.Fatal("checkReleaseIntent() error = nil")
+		}
+	})
 }

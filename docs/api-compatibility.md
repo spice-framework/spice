@@ -19,12 +19,13 @@ The longest matching package prefix owns a package.
 | `experimental` | Usable for evaluation, examples, and feedback, but may change or move before preview. It must not be advertised as production-supported. |
 | `internal` | Reachable only as a narrow compatibility/identity bridge and not a supported application import. Toolchain implementation is absent from this module. |
 
-No package is stable before the first signed preview. `preview-stable` records
+No package is stable before the first authenticated preview. `preview-stable` records
 intent and review priority; it does not retroactively create a compatibility
-promise for the current untagged repository. The protected source-release
-workflow, per-repository trust anchor, and immutable tag controls establish how
-that first preview can be authenticated; configuring those controls is not a
-release and does not advance package maturity by itself.
+promise for the current untagged repository. The protected keyless
+source-release workflow, exact reusable-workflow identity, portable provenance
+bundle, and immutable tag controls establish how that first preview can be
+authenticated; configuring those controls is not a release and does not
+advance package maturity by itself.
 
 ## Current boundary
 

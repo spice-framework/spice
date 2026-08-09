@@ -1,12 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"crypto/ed25519"
-	"crypto/sha256"
-	"crypto/x509"
-	"encoding/hex"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -15,8 +9,8 @@ import (
 )
 
 const (
-	releaseWorkflowRevision     = "9ae80e32f64b29697acd9ebe629468850b4ae9f2"
-	releasePublicKeyFingerprint = "a7d12fc21024a11f0472887a37c731697a0aa2c2f6b84ff3afef6d47563422f1"
+	releaseWorkflowRevision = "6a0ba9f430304c33bf897f4e2d3f393926f42eb9"
+	releaseVersion          = "v0.1.0-preview.2"
 )
 
 func checkReleaseContract(root string) error {
@@ -26,7 +20,7 @@ func checkReleaseContract(root string) error {
 	if err := checkReleaseWorkflow(root); err != nil {
 		return err
 	}
-	return checkReleasePublicKey(root)
+	return checkReleaseIntent(root)
 }
 
 func checkVerifyReleaseTarget(root string) error {
@@ -50,7 +44,7 @@ func checkReleaseWorkflow(root string) error {
 	}
 	if strings.ReplaceAll(string(content), "\r\n", "\n") != expectedReleaseWorkflow(modulePath) {
 		return fmt.Errorf(
-			"release workflow must call the protected central workflow at %s for module %s with only the explicit repository signing secret",
+			"release workflow must call the exact keyless central workflow at %s for module %s with only the required permission ceiling and no secrets",
 			releaseWorkflowRevision,
 			modulePath,
 		)
@@ -70,48 +64,45 @@ permissions: {}
 
 jobs:
   release:
-    name: Centrally verify, sign, and publish
+    name: Keylessly attest and publish
     permissions:
       contents: write
-    uses: spice-framework/.github/.github/workflows/library-release.yml@%s
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    uses: spice-framework/.github/.github/workflows/go-module-release.yml@%s
     with:
       module: %s
-    secrets:
-      SPICE_LIBRARY_RELEASE_SIGNING_KEY: ${{ secrets.SPICE_LIBRARY_RELEASE_SIGNING_KEY }}
-`, releaseWorkflowRevision, module)
+      workflow_commit: %s
+`, releaseWorkflowRevision, module, releaseWorkflowRevision)
 }
 
-func checkReleasePublicKey(root string) error {
-	path := filepath.Join(root, "security", "release", "ed25519-public.pem")
+func checkReleaseIntent(root string) error {
+	path := filepath.Join(root, "spice-release.json")
 	info, err := os.Lstat(path)
 	if err != nil {
-		return fmt.Errorf("inspect release public key: %w", err)
+		return fmt.Errorf("inspect release intent: %w", err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-		return errors.New("release public key must be a regular file, not a symlink")
+		return errors.New("release intent must be a regular file, not a symlink")
 	}
-	content, err := os.ReadFile(path) // #nosec G304 -- root and public-key path are repository-owned.
+	content, err := os.ReadFile(path) // #nosec G304 -- root and release-intent path are repository-owned.
 	if err != nil {
-		return fmt.Errorf("read release public key: %w", err)
+		return fmt.Errorf("read release intent: %w", err)
 	}
-	block, trailing := pem.Decode(content)
-	if block == nil || block.Type != "PUBLIC KEY" || len(strings.TrimSpace(string(trailing))) != 0 {
-		return errors.New("release public key must contain exactly one canonical PUBLIC KEY PEM block")
-	}
-	if !bytes.Equal(content, pem.EncodeToMemory(block)) {
-		return errors.New("release public key must use canonical PEM encoding")
-	}
-	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return fmt.Errorf("parse release public key: %w", err)
-	}
-	key, ok := parsed.(ed25519.PublicKey)
-	if !ok || len(key) != ed25519.PublicKeySize {
-		return errors.New("release public key must be an Ed25519 SubjectPublicKeyInfo key")
-	}
-	digest := sha256.Sum256(block.Bytes)
-	if fingerprint := hex.EncodeToString(digest[:]); fingerprint != releasePublicKeyFingerprint {
-		return fmt.Errorf("release public-key DER fingerprint is %s, want %s", fingerprint, releasePublicKeyFingerprint)
+	if string(content) != expectedReleaseIntent() {
+		return errors.New("release intent must be the exact canonical go-module-v1 preview.2 identity")
 	}
 	return nil
+}
+
+func expectedReleaseIntent() string {
+	return fmt.Sprintf(`{
+  "schema": 1,
+  "profile": "go-module-v1",
+  "repository": "spice",
+  "module": %q,
+  "version": %q
+}
+`, modulePath, releaseVersion)
 }

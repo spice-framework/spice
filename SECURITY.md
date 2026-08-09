@@ -1,7 +1,7 @@
 # Security Policy
 
 Spice is pre-alpha and has no stable release line yet. The configured release
-path does not imply that a signed preview has been published.
+path does not imply that an authenticated preview has been published.
 
 Please avoid publicly disclosing exploitable vulnerabilities. Contact the repository owner privately through GitHub where possible and include reproduction steps, affected versions, and impact.
 
@@ -18,18 +18,21 @@ No security feature is considered complete without negative tests and documented
 
 ## Release authenticity
 
-Core source releases are signed with a repository-distinct Ed25519 key. The
-reviewed public trust anchor is committed at
-`security/release/ed25519-public.pem`; its SHA-256 SubjectPublicKeyInfo DER
-fingerprint is
-`a7d12fc21024a11f0472887a37c731697a0aa2c2f6b84ff3afef6d47563422f1`
-and is enforced by the repository quality gate. Authenticate downloaded
-signatures against that committed key, not only against a public key shipped in
-the same release.
+Core preview.2 source releases use GitHub artifact attestations backed by
+Sigstore, not a long-lived repository or organization signing key. Candidate
+validation and independently pinned rendering and verification have only read
+authority. The secret-free protected `release-attestation` job alone receives
+short-lived OIDC, attestation, and artifact-metadata authority; the separately
+protected `release-publish` job alone receives content-write authority.
 
-The matching private key is available only to the protected signing phase as
-the repository Actions secret `SPICE_LIBRARY_RELEASE_SIGNING_KEY`. Candidate
-validation is uncredentialed, signing and publishing require separate
-environment approvals, and `v*` tags cannot be updated or deleted. Report any
-suspected key disclosure, tag-rule bypass, workflow-pin drift, artifact
-substitution, or checksum/signature mismatch through the private channel above.
+Authenticate every downloaded source artifact against its published portable
+bundle, the exact `spice-framework/spice` source commit and tag ref, the GitHub
+OIDC issuer, and the immutable organization workflow path and commit documented
+in [`docs/releasing.md`](docs/releasing.md). Checksums alone do not establish
+provenance. Release tags cannot be updated or deleted.
+
+The public key under `security/release/history/` is retained only to audit the
+legacy preview.1 design, which did not produce a completed GitHub Release. It
+is not an active preview.2 trust anchor. Report any suspected OIDC or workflow
+identity mismatch, tag-rule bypass, workflow-pin drift, artifact substitution,
+or checksum/attestation mismatch through the private channel above.

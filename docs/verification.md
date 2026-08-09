@@ -79,4 +79,8 @@ The separately versioned repositories own their specialized gates:
 Run `make verify` on the exact tree before a core commit. Release decisions
 add the coordinated ecosystem evidence; they do not weaken or bypass this gate.
 `make verify-release` deliberately executes the same complete verifier and is
-the exact entrypoint used by the pinned organization source-release workflow.
+the only candidate-owned command run by the pinned organization keyless
+source-release workflow. It runs before any OIDC, attestation, or publication
+authority exists. Subsequent rendering and independent verification use
+separately pinned organization repositories and treat this checkout as inert
+source input.

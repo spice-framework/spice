@@ -1,104 +1,122 @@
 # Releasing Spice core
 
 This repository publishes the standard-library-only
-`github.com/spice-framework/spice` library module. Core releases contain source
-and provenance only. CLI binaries and toolchain artifacts are released from
+`github.com/spice-framework/spice` library module. Core releases contain
+deterministic source, module provenance, checksums, and keyless provenance.
+CLI binaries and toolchain artifacts are released from
 [`spice-framework/toolchain`](https://github.com/spice-framework/toolchain).
 
-## Candidate gate
+## Candidate contract
 
-The exact candidate commit must pass `make verify-release` under Go 1.26.5.
-That command is an unconditional alias for the complete core `make verify`
-contract; it does not reduce the local gate for a release runner. The protected
-central workflow additionally requires that a canonical `vX.Y.Z` or SemVer
-prerelease tag resolves to the exact checked-out commit, that the commit is an
-ancestor of `origin/main`, and that the reviewed public key is the exact
-regular file committed at the tagged tree path.
+The exact candidate commit must contain this closed `spice-release.json`
+identity:
 
-The release caller is intentionally exact and fail-closed:
+```json
+{
+  "schema": 1,
+  "profile": "go-module-v1",
+  "repository": "spice",
+  "module": "github.com/spice-framework/spice",
+  "version": "v0.1.0-preview.2"
+}
+```
+
+It must pass `make verify-release` under Go 1.26.5. That command is an
+unconditional alias for the complete core `make verify` contract. The reusable
+workflow additionally requires a canonical SemVer tag at the exact checked-out
+commit, a clean tree, public `spice-framework` ownership, the canonical module
+identity, and ancestry from `origin/main`.
+
+The repository caller is deliberately closed:
 
 - it pins
-  `spice-framework/.github/.github/workflows/library-release.yml` at immutable
-  commit `9ae80e32f64b29697acd9ebe629468850b4ae9f2`;
-- repository-level workflow permissions are empty;
-- only the release job receives `contents: write` for final publication; and
-- only `SPICE_LIBRARY_RELEASE_SIGNING_KEY` is explicitly forwarded. Secret
-  inheritance and additional secret mappings are rejected by the repository
-  quality gate.
+  `spice-framework/.github/.github/workflows/go-module-release.yml` at commit
+  `6a0ba9f430304c33bf897f4e2d3f393926f42eb9`;
+- it repeats that revision through the required `workflow_commit` input;
+- repository-level permissions are empty;
+- the release job grants only `contents:write`, `id-token:write`,
+  `attestations:write`, and `artifact-metadata:write`; and
+- it forwards no secrets and never uses `secrets: inherit`.
 
-## Source-only artifact contract
+The repository quality gate requires the exact caller and metadata bytes, so a
+different workflow, pin, permission, input, secret mapping, job, profile, or
+version fails before a candidate can be accepted.
 
-The trusted renderer consumes the exact inert Git tree and produces five
-library assets for a version such as `v0.1.0`:
+## Keyless artifact contract
 
-- `spice_0.1.0_source.tar.gz` containing the complete committed source tree
-  below one versioned archive root;
-- `spice_0.1.0_sbom.spdx.json` containing SPDX 2.3 source and module
-  provenance;
-- `checksums.txt` containing canonical SHA-256 entries for the source archive
-  and SBOM;
-- `checksums.txt.sig`, a raw Ed25519 signature over the exact checksum file;
-  and
-- `checksums.txt.pem`, the matching public key for transport convenience.
+The organization workflow builds the renderer from immutable development
+commit `67b9ca3f20793da881beeea05910042a81ad9877`. It produces exactly four
+deterministic module artifacts:
 
-No binary is built from core and no second dependency resolver is introduced.
-Planning, rendering, signing, and independent verification use immutable
-trusted development/toolchain revisions. The uncredentialed validation phase
-may populate the public Go module cache only to run this repository's exact
-gate. Release planning, signing, and artifact verification run with Go module
-and checksum network access disabled.
+- `spice_0.1.0-preview.2_source.tar.gz` containing the tagged committed tree
+  below one versioned root;
+- `spice_0.1.0-preview.2_sbom.spdx.json` containing the one-module SPDX 2.3
+  graph;
+- `spice_0.1.0-preview.2_release.json` binding repository, module, version,
+  commit, source epoch, Go version, and artifact digests; and
+- `checksums.txt` containing canonical SHA-256 entries.
 
-Consumers must authenticate the signature against the reviewed key committed
-at [`security/release/ed25519-public.pem`](../security/release/ed25519-public.pem),
-not against an unauthenticated key downloaded beside the assets. The repository
-quality gate parses the key as a single Ed25519 SubjectPublicKeyInfo PEM and
-pins its SHA-256 DER fingerprint:
-`a7d12fc21024a11f0472887a37c731697a0aa2c2f6b84ff3afef6d47563422f1`.
-The central workflow also refuses a private key that does not match this tagged
-public anchor.
+Spice core intentionally has no root `go.sum` or `vendor/modules.txt`. The
+central renderer accepts that graphless form only because the catalog selects
+no required modules and offline, read-only Go inspection proves that `go.mod`
+contains no `require`, `tool`, or `replace` directives and that the selected
+graph contains only the unversioned main module. A partial graph pair or any
+tracked `vendor/` path fails.
 
-## Protected authority
+The workflow independently builds
+`spice-go-release-verify` from toolchain commit
+`83c2a7e41945f8e7ce187f5fb333158c4e6ff223`. That verifier authenticates the
+exact Git source, archive, metadata, SBOM, checksums, module policy, and clean
+tag identity, then copies only accepted bytes into a new verifier-owned
+directory. Renderer output is never passed directly to signing or publication.
 
-The private key exists only as the repository Actions secret
-`SPICE_LIBRARY_RELEASE_SIGNING_KEY`; it is distinct from every other Spice
-repository's key. It is not stored in a GitHub environment, source file,
-artifact, log, runner cache, or local workspace.
+The protected `release-attestation` job uses a short-lived GitHub OIDC identity
+to create Sigstore-backed SLSA provenance for those independently verified
+artifacts. A separate unprivileged job verifies the portable bundle against
+the exact caller repository, source commit and tag ref, GitHub issuer,
+organization workflow path, and immutable workflow commit. The bundle is
+published as `provenance.sigstore.json` beside the four artifacts.
 
-Two protected environments separate authority:
+## Protected authority and immutable tags
 
-1. `release-signing` exposes the private key only after candidate validation
-   and release-plan review.
-2. `release-publish` permits publication only after independent artifact
-   authentication has succeeded.
+No long-lived release key or Actions secret is used or forwarded by the
+preview.2 path. Two
+secret-free protected environments separate authority:
 
-Both environments accept only `v*` deployment refs and require the sole
-current repository owner as reviewer. Because the organization currently has
-one human operator, self-review is enabled and documented rather than replaced
-with a fictional second approver. Add an independent required reviewer and
-disable self-review before delegating release authority to another maintainer.
+1. `release-attestation` approves the only job that receives OIDC,
+   attestation, and artifact-metadata authority; it has no content-write
+   permission.
+2. `release-publish` approves the only job that receives `contents:write`; it
+   cannot mint an OIDC identity and receives only authenticated artifacts.
 
-Repository tag rules split creation from immutability. Only the named release
-owner may bypass the active creation restriction for `refs/tags/v*`. A second
-active ruleset prohibits updates and deletion of those tags with no bypass
-actor. A mistaken release tag therefore remains auditable and must be followed
-by a new version; it is never moved or deleted.
+Both environments accept only `v*` deployment refs and require the current
+repository owner as reviewer. Repository rules separately restrict release-tag
+creation and prohibit updates or deletion without bypass. A mistaken tag must
+be followed by a new version; it is never moved or reused.
+
+The Ed25519 key retained at
+[`security/release/history/v0.1.0-preview.1-ed25519-public.pem`](../security/release/history/v0.1.0-preview.1-ed25519-public.pem)
+belongs only to the legacy preview.1 design. Preview.1 did not complete a
+GitHub Release, and that key is not part of the preview.2 trust contract.
 
 ## Release ceremony
 
-1. Confirm the public-key fingerprint, repository secret, protected
-   environments, deployment policies, and both tag rulesets.
-2. Run `make verify-release` on the exact clean candidate and require hosted CI
-   to pass.
-3. Create and push an annotated canonical SemVer tag whose target is the
-   accepted main commit.
-4. Review and approve `release-signing` only after uncredentialed validation
-   and the inert plan succeed.
-5. Review and approve `release-publish` only after the independent verifier
-   authenticates the signed artifact set against the committed key.
-6. Download the published assets into a clean directory and independently
-   verify the signature, checksums, archive root/tree/commit, SPDX provenance,
-   and unchanged remote tag target.
+1. Verify the exact candidate metadata, workflow pin, protected environments,
+   deployment policies, and immutable tag rules.
+2. Run `make fast`, `make check`, and `make verify-release` in a clean checkout
+   and require hosted CI for the exact commit to pass.
+3. Rehearse the immutable development renderer and independent toolchain
+   verifier against the exact candidate in disposable local storage.
+4. Create and push one annotated canonical SemVer tag targeting the accepted
+   `main` commit.
+5. Approve `release-attestation` only after candidate validation, rendering,
+   and independent verification succeed.
+6. Approve `release-publish` only after portable provenance authentication
+   succeeds.
+7. Download every published asset, verify checksums and each artifact against
+   the Sigstore bundle and exact workflow identity, and confirm the remote tag
+   object and peeled commit remain unchanged.
 
-The release workflow being configured does not itself claim that a signed
-preview exists. Until an immutable tag completes this ceremony, Spice remains
-pre-alpha and has no compatibility-bearing release.
+Committing this candidate does not publish preview.2. The version exists only
+after the immutable tag completes this ceremony and the downloaded assets are
+independently authenticated.

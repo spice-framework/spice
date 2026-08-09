@@ -47,12 +47,12 @@ as executable `available`, bounded `integration`, or deliberately
 claim Java class-for-class parity; it freezes the practical Go-native boundary
 and keeps ecosystem breadth visible as integration work.
 
-Release hardening now includes a repository-owned offline artifact builder:
-clean exact tags produce deterministic `-trimpath` CLI archives for
-Windows/Linux/macOS on amd64/arm64, a vendor-derived SPDX 2.3 SBOM, SHA-256
-checksums, and an Ed25519 signature. Tag automation repeats the full release
-gate before publishing; Go's module/vendor graph remains the only dependency
-and build input.
+Release hardening now uses separately pinned organization tooling. Clean exact
+core tags produce deterministic source archives, an SPDX 2.3 SBOM, SHA-256
+checksums, and keyless Sigstore-backed provenance after independent
+verification; CLI archives remain owned by the standalone toolchain repository.
+Tag automation repeats the full release gate before publishing, and Go's module
+graph remains the only dependency and build input.
 Release acceptance also enforces repository-owned median time, memory, and
 allocation budgets for immutable model construction, deterministic rendering,
 warm editor analysis, and CLI parsing. The getting-started tutorial,
