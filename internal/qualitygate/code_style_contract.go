@@ -36,6 +36,8 @@ func (contract codeStyleContract) check() error {
 		"# Part IX — Automated enforcement implementation",
 		"\"schemaVersion\": 1",
 		"\"packageFunctions\": \"error\"",
+		"\"packageVariableExceptions\": [",
+		"Symbol patterns, file-wide variable exceptions, and",
 		"spice.style.file.one-primary-type",
 		"spice.style.route.classification",
 	} {

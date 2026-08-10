@@ -42,6 +42,30 @@ func TestCodeStyleContractRejectsInventoryDrift(t *testing.T) {
 	}
 }
 
+func TestCodeStyleContractRejectsMissingVariableExceptionContract(t *testing.T) {
+	t.Parallel()
+	root, err := repositoryRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(filepath.Join(root, "CODE_STYLE.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutated := strings.Replace(string(content), "\"packageVariableExceptions\": [", "\"removedVariableExceptions\": [", 1)
+	fixture := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fixture, "CODE_STYLE.md"), []byte(mutated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyDescriptorSources(root, fixture); err != nil {
+		t.Fatal(err)
+	}
+	if err := (codeStyleContract{root: fixture}).check(); err == nil ||
+		!strings.Contains(err.Error(), "packageVariableExceptions") {
+		t.Fatalf("code style variable-exception drift error = %v", err)
+	}
+}
+
 func copyDescriptorSources(sourceRoot, destinationRoot string) error {
 	source := filepath.Join(sourceRoot, "annotation")
 	return filepath.WalkDir(source, func(path string, entry os.DirEntry, walkErr error) error {
