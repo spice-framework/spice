@@ -5,6 +5,12 @@ smaller than the toolchain verifier because this module owns public libraries,
 not compiler, CLI, LSP, generated application, editor, or release-construction
 implementation.
 
+The check phase also validates the canonical [`CODE_STYLE.md`](../CODE_STYLE.md)
+contract against the complete official annotation descriptor inventory. The
+separately versioned Toolchain executes structural and Spice-aware profile
+analysis in consuming applications; core prevents the normative document,
+schema, diagnostic namespace, and descriptor table from drifting silently.
+
 ## Feedback loop
 
 Use focused package tests while editing, then:

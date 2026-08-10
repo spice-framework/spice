@@ -123,6 +123,9 @@ func check(ctx context.Context, root string) error {
 	if err := checkAPIMaturity(ctx, root); err != nil {
 		return err
 	}
+	if err := (codeStyleContract{root: root}).check(); err != nil {
+		return err
+	}
 	if err := checkSpringCoverage(root); err != nil {
 		return err
 	}

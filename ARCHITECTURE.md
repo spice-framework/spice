@@ -11,6 +11,14 @@ or hidden network access.
 The product is intentionally split into independently versioned repositories.
 This repository is the public core library, not the compiler distribution.
 
+Application source follows the normative
+[`java-structured` profile](CODE_STYLE.md): Java-shaped architecture with
+Go-native semantics, one primary type per ordinary handwritten file, behavior
+owned by named types, constructor injection, explicit module boundaries, and
+generated direct-call wiring. The separately versioned Toolchain owns the
+standalone structural analyzer and the typed Spice-aware verification phase;
+core owns the canonical contract and descriptor inventory.
+
 ## Repository boundaries
 
 | Repository | Ownership |

@@ -29,6 +29,13 @@ with the historical Git URL preserved as a redirect. The immediate priority is
 post-transfer CI/clean-room resolution evidence, followed by consumer/editor
 extraction.
 
+The early-phase source contract is now explicitly standardized by
+[`CODE_STYLE.md`](CODE_STYLE.md). Adoption follows its executable sequence:
+strict structural inventory, typed Spice-aware validation, changed-code
+enforcement, behavior-preserving package-by-feature migration, and finally
+repository-wide enforcement. New scaffolds must emit the profile rather than
+creating new legacy-shaped source.
+
 ## Current developer-proof priority
 
 The developer-proof milestone now composes one complete workflow: a minimal

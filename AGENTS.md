@@ -70,6 +70,12 @@ Do not weaken, skip, or broadly suppress a gate to land a change. A narrow suppr
 
 ## Code standards
 
+- Treat `CODE_STYLE.md` as the normative source contract for handwritten Spice
+  application code. New application scaffolds and application refactors must
+  use its `java-structured` profile and pass the repository-owned structural
+  and typed Spice-aware checks. Compiler, runtime, generated, vendored, and
+  third-party sources keep their repository-specific contracts and must not be
+  mechanically reshaped merely to imitate application structure.
 - Prefer small packages with clear ownership and dependency direction.
 - Return errors with actionable context and preserve source positions in diagnostics.
 - Keep output stable across runs; generated artifacts must not contain timestamps or absolute paths.
