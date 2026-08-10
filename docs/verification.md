@@ -9,7 +9,8 @@ The check phase also validates the canonical [`CODE_STYLE.md`](../CODE_STYLE.md)
 contract against the complete official annotation descriptor inventory. The
 separately versioned Toolchain executes structural and Spice-aware profile
 analysis in consuming applications; core prevents the normative document,
-schema, diagnostic namespace, and descriptor table from drifting silently.
+schema, diagnostic namespace, descriptor table, and exact reviewed SHA-256
+identity from drifting silently.
 
 ## Feedback loop
 

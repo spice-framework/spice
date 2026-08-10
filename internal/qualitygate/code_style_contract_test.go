@@ -66,6 +66,30 @@ func TestCodeStyleContractRejectsMissingVariableExceptionContract(t *testing.T) 
 	}
 }
 
+func TestCodeStyleContractRejectsUnreviewedCanonicalDrift(t *testing.T) {
+	t.Parallel()
+	root, err := repositoryRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(filepath.Join(root, "CODE_STYLE.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := t.TempDir()
+	mutated := append(append([]byte(nil), content...), []byte("unreviewed drift\n")...)
+	if err := os.WriteFile(filepath.Join(fixture, "CODE_STYLE.md"), mutated, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyDescriptorSources(root, fixture); err != nil {
+		t.Fatal(err)
+	}
+	if err := (codeStyleContract{root: fixture}).check(); err == nil ||
+		!strings.Contains(err.Error(), "reviewed canonical") {
+		t.Fatalf("code style canonical drift error = %v", err)
+	}
+}
+
 func copyDescriptorSources(sourceRoot, destinationRoot string) error {
 	source := filepath.Join(sourceRoot, "annotation")
 	return filepath.WalkDir(source, func(path string, entry os.DirEntry, walkErr error) error {

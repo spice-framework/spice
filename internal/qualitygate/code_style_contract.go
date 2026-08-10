@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"go/ast"
@@ -15,7 +16,10 @@ import (
 	"strings"
 )
 
-const expectedStyleDescriptorCount = 35
+const (
+	expectedCodeStyleSHA256      = "8A58866FE06FF4E6BFC6D5D7CC9B01EF053D8D8DCBEE5E4E7BEF7F6CDCEC15DD"
+	expectedStyleDescriptorCount = 35
+)
 
 type codeStyleContract struct {
 	root string
@@ -69,6 +73,10 @@ func (contract codeStyleContract) check() error {
 			!strings.Contains(joined, "."+descriptor+"`") {
 			return fmt.Errorf("CODE_STYLE.md inventory omits official descriptor %s", descriptor)
 		}
+	}
+	digest := fmt.Sprintf("%X", sha256.Sum256(content))
+	if digest != expectedCodeStyleSHA256 {
+		return fmt.Errorf("CODE_STYLE.md SHA-256 is %s, want reviewed canonical %s", digest, expectedCodeStyleSHA256)
 	}
 	return nil
 }
