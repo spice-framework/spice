@@ -11,14 +11,14 @@ application marker:
 // @import { Enable } from "github.com/spice-framework/spice/annotation/management"
 
 // @Application
-// @Enable(expose=["health", "liveness", "readiness", "info", "metrics", "configprops", "modules"], access="loopback")
+// @Enable(expose=["health", "liveness", "readiness", "info", "metrics", "configprops", "modules", "loggers"], access="loopback")
 func main() {
 	os.Exit(spiceapp.Main(os.Args[1:]))
 }
 ```
 
 Valid names are `health`, `liveness`, `readiness`, `info`, `metrics`,
-`configprops`, and `modules`. The optional `access` setting is either `public`
+`configprops`, `modules`, and `loggers`. The optional `access` setting is either `public`
 or `loopback`; it defaults to `loopback`. Public exposure is an explicit
 opt-in and should be placed behind an independently authenticated management
 listener.
@@ -57,6 +57,8 @@ An isolated handler serves:
 | `GET /actuator/metrics` | generated-route HTTP metrics when a collector is supplied |
 | `GET /actuator/configprops` | generated configuration key/type/module/value/provenance metadata with mandatory secret redaction |
 | `GET /actuator/modules` | generated `spice.modules/v1` module, API, dependency-edge, and unassigned-package canvas |
+| `GET /actuator/loggers` | sorted configured/effective levels for root and every registered exact scope |
+| `POST /actuator/loggers` | bounded `{scope,level}` update; `null` resets the runtime override |
 
 Down reports use HTTP 503; up reports and info use HTTP 200. Responses use the
 same secure JSON writer as generated controllers. The default base path is
@@ -69,6 +71,12 @@ similar headers: trusting those headers without a configured trusted-proxy
 boundary would let a remote caller forge loopback provenance. This policy
 protects only management routes; it does not invent authentication semantics
 for application routes.
+
+`loggers` additionally requires an instance-owned `*logging.Controller` and
+is rejected when management access is `public`. Updates accept only one strict
+JSON object of at most 4 KiB, reject unknown scopes and levels, and never
+change package or process-global state. `Handler.Patterns()` returns the GET
+subtree plus the exact POST route when this endpoint is enabled.
 
 `configprops` is never part of the runtime default set and is generated only
 when explicitly allowlisted. Generation combines the exact schema and resolved

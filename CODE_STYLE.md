@@ -1746,7 +1746,9 @@ Use `@observability.Logging` at the application boundary.
 
 Application components MUST NOT install or mutate a global logger.
 
-Inject an explicit logger or observer seam when component-level logging is required.
+Inject `*logging.Logger` or an explicit observer seam when component-level
+logging is required. Derive an exact registered scope with `WithScope` and use
+typed `logging.Field` constructors.
 
 Structured logs MUST:
 
@@ -1756,6 +1758,11 @@ Structured logs MUST:
 - avoid secrets and raw rejected input;
 - identify component, operation, and phase;
 - avoid duplicate logging at every layer.
+
+Automatic observers MUST classify failures through `logging.ErrorFields`.
+Application code MUST NOT pass `error`, `err.Error()`, stack traces, prompts,
+credentials, request bodies, or tool/model content to a logging field. A
+reviewed error may implement `logging.SafeError` with bounded fixed details.
 
 ---
 

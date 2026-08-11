@@ -35,7 +35,9 @@ The intended preview surface is deliberately narrow:
 - dependency handles and lifecycle;
 - configuration, conversion, validation, resources, and bounded expressions;
 - core web, management, security, data, mail, interception, and `spicetest`
-  contracts.
+  contracts;
+- instance-owned structured logging records, handlers, scoped level control,
+  and safe error projection.
 
 Async, batch, cache, events, outbound HTTP, internationalization, messaging,
 migrations, observability adapters, retry, scheduling, sessions, views, and

@@ -1,39 +1,42 @@
 # Observability
 
-Spice keeps its core observation contracts dependency-free and instance-owned.
-Generated applications accept ordered lifecycle observers and HTTP observers;
-route metadata always uses compiler-owned symbol IDs, module import paths,
-methods, and templates rather than raw request paths.
+Spice keeps its logging and observation contracts standard-library-first,
+instance-owned, and payload-free. The `logging` package owns validated records,
+typed fields, exact scopes, concurrent level control, safe error projection,
+and canonical JSON/text handlers over the standard `slog.Handler` boundary.
 
-The `observability` package adapts both seams to `log/slog`:
+Handwritten applications can construct the same runtime explicitly:
 
 ```go
-logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
-
-httpLogs, err := observability.NewSlogHTTPObserver(logger)
+logger, err := logging.New(logging.Options{
+    Application: "commerce",
+    Writer: os.Stderr,
+    Configuration: logging.Configuration{
+        Format: logging.FormatJSON,
+        Level:  logging.LevelInfo,
+    },
+    Scopes: []logging.Scope{{Module: "example.com/commerce"}},
+})
 if err != nil {
     return err
 }
-lifecycleLogs, err := observability.NewSlogLifecycleObserver(logger)
+logs, err := observability.NewLoggingObservers(logger)
 if err != nil {
     return err
 }
 
 application, err := generated.NewApplicationWithOptions(ctx, generated.ApplicationOptions{
-    HTTPObservers: []web.HTTPObserver{httpLogs},
-    Observers:     []lifecycle.Observer{lifecycleLogs},
+    HTTPObservers: []web.HTTPObserver{logs.HTTP},
+    Observers:     []lifecycle.Observer{logs.Lifecycle},
 })
 ```
 
-HTTP completion records contain only stable route metadata, status, byte count,
-duration, and panic state. They never contain raw URLs, headers, bodies, query
-values, or path values. Successful requests log at info, client failures at
-warn, and server failures or panics at error.
-
-Lifecycle records contain compiler-generated component/module ownership,
-operation, phase, and an internal error on failure. No global logger or
-registry is installed. Applications choose handlers, levels, redaction, and
-export destinations explicitly.
+`LoggingObservers` supplies adapters for lifecycle, HTTP, observed methods,
+authorization, schedules, async tasks, retry, cache, typed events,
+transactions, batch, outbox, migrations, and the bounded test-mail sender.
+Records contain compiler-owned identities, status, duration, counters, and
+fixed outcomes only. They exclude raw paths, request content, cache keys and
+values, event payloads, SQL, mail content, principals, and unreviewed errors.
 
 Generated applications can request these adapters on their application marker:
 
@@ -43,13 +46,24 @@ Generated applications can request these adapters on their application marker:
 func Application(*Server) {}
 ```
 
-The compiler records the opt-in as typed bootstrap metadata and generated
-construction installs both lifecycle and HTTP logging observers in stable
-order. Generated command construction/start/failure messages remain baseline
-command behavior; the companion controls component lifecycle and request
-records. Importing the package alone never activates logging. Callers that need
-another handler or observer set can omit the annotation and use
-`NewApplicationWithOptions` or `RunCommand`.
+The compiler records the opt-in as typed bootstrap metadata, selects an
+injectable `*logging.Logger`, registers compiler-known scopes, and installs the
+adapters required by the active feature set. Mandatory framework metrics run
+first, logging second, and application observers after them. Importing the
+package alone never activates logging.
+
+The safe API deliberately omits arbitrary values and raw errors. Automatic
+failure fields use `logging.ClassifyError`; cancellation and deadlines receive
+fixed kinds, ordinary errors become `internal`, and only a reviewed
+`logging.SafeError` may expose a bounded code or message. `Logger.Slog()` is an
+explicit compatibility boundary for third-party slog callers and does not
+weaken the safe Spice field API.
+
+Built-in handlers never open files or connect to a service. Applications own
+writers and custom handlers. Exact root/module/component levels can change
+through the logger's instance-owned controller; a generated application may
+expose the same controller with the loopback-only `loggers` management
+endpoint.
 
 ## OpenTelemetry starter
 

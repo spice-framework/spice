@@ -4,8 +4,10 @@ package management
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"net"
 	"net/http"
@@ -15,8 +17,11 @@ import (
 
 	"github.com/spice-framework/spice/config"
 	"github.com/spice-framework/spice/lifecycle"
+	spicelogging "github.com/spice-framework/spice/logging"
 	"github.com/spice-framework/spice/web"
 )
+
+const maximumLoggerUpdateBytes = 4 << 10
 
 // Group identifies one independently queryable health concern.
 type Group string
@@ -200,6 +205,7 @@ type HandlerOptions struct {
 	Metrics       *HTTPMetrics
 	Configuration *ConfigurationReport
 	Modules       *ModuleReport
+	Logging       *spicelogging.Controller
 	Expose        []Endpoint
 	Access        Access
 }
@@ -233,6 +239,9 @@ const (
 	EndpointConfigProps Endpoint = "configprops"
 	// EndpointModules exposes the generated application-module canvas.
 	EndpointModules Endpoint = "modules"
+	// EndpointLoggers exposes instance-owned logging levels and loopback-only
+	// runtime updates.
+	EndpointLoggers Endpoint = "loggers"
 )
 
 // ConfigurationProperty is one safe resolved configuration entry. Secret
@@ -302,6 +311,7 @@ type Handler struct {
 	metrics       *HTTPMetrics
 	configuration *ConfigurationReport
 	modules       *ModuleReport
+	logging       *spicelogging.Controller
 	exposed       map[Endpoint]struct{}
 	access        Access
 	mux           *http.ServeMux
@@ -334,9 +344,15 @@ func NewHandler(options HandlerOptions) (*Handler, error) {
 		options.Metrics != nil,
 		options.Configuration != nil,
 		options.Modules != nil,
+		options.Logging != nil,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if access == AccessPublic {
+		if _, writableLogging := exposed[EndpointLoggers]; writableLogging {
+			return nil, errors.New("construct management handler: loggers endpoint requires loopback access")
+		}
 	}
 	handler := &Handler{
 		basePath:      basePath,
@@ -345,38 +361,36 @@ func NewHandler(options HandlerOptions) (*Handler, error) {
 		metrics:       options.Metrics,
 		configuration: cloneConfigurationReport(options.Configuration),
 		modules:       cloneModuleReport(options.Modules),
+		logging:       options.Logging,
 		exposed:       exposed,
 		access:        access,
 		mux:           http.NewServeMux(),
 	}
-	if handler.exposes(EndpointHealth) {
-		handler.mux.HandleFunc("GET "+basePath+"/health", handler.serveReport(GroupHealth))
-	}
-	if handler.exposes(EndpointLiveness) {
-		handler.mux.HandleFunc("GET "+basePath+"/health/liveness", handler.serveReport(GroupLiveness))
-	}
-	if handler.exposes(EndpointReadiness) {
-		handler.mux.HandleFunc("GET "+basePath+"/health/readiness", handler.serveReport(GroupReadiness))
-	}
-	if handler.exposes(EndpointInfo) {
-		handler.mux.HandleFunc("GET "+basePath+"/info", handler.serveInfo)
-	}
-	if handler.exposes(EndpointMetrics) {
-		handler.mux.HandleFunc("GET "+basePath+"/metrics", handler.serveMetrics)
-	}
-	if handler.exposes(EndpointConfigProps) {
-		handler.mux.HandleFunc(
-			"GET "+basePath+"/configprops",
-			handler.serveConfiguration,
-		)
-	}
-	if handler.exposes(EndpointModules) {
-		handler.mux.HandleFunc(
-			"GET "+basePath+"/modules",
-			handler.serveModules,
-		)
-	}
+	handler.registerEndpoints()
 	return handler, nil
+}
+
+func (handler *Handler) registerEndpoints() {
+	registrations := []struct {
+		endpoint Endpoint
+		pattern  string
+		serve    http.HandlerFunc
+	}{
+		{EndpointHealth, "GET " + handler.basePath + "/health", handler.serveReport(GroupHealth)},
+		{EndpointLiveness, "GET " + handler.basePath + "/health/liveness", handler.serveReport(GroupLiveness)},
+		{EndpointReadiness, "GET " + handler.basePath + "/health/readiness", handler.serveReport(GroupReadiness)},
+		{EndpointInfo, "GET " + handler.basePath + "/info", handler.serveInfo},
+		{EndpointMetrics, "GET " + handler.basePath + "/metrics", handler.serveMetrics},
+		{EndpointConfigProps, "GET " + handler.basePath + "/configprops", handler.serveConfiguration},
+		{EndpointModules, "GET " + handler.basePath + "/modules", handler.serveModules},
+		{EndpointLoggers, "GET " + handler.basePath + "/loggers", handler.serveLoggers},
+		{EndpointLoggers, "POST " + handler.basePath + "/loggers", handler.updateLoggers},
+	}
+	for _, registration := range registrations {
+		if handler.exposes(registration.endpoint) {
+			handler.mux.HandleFunc(registration.pattern, registration.serve)
+		}
+	}
 }
 
 func exposedEndpoints(
@@ -384,6 +398,7 @@ func exposedEndpoints(
 	metrics bool,
 	configuration bool,
 	modules bool,
+	logging bool,
 ) (map[Endpoint]struct{}, error) {
 	if configured == nil {
 		configured = []Endpoint{
@@ -401,26 +416,8 @@ func exposedEndpoints(
 	}
 	result := make(map[Endpoint]struct{}, len(configured))
 	for index, endpoint := range configured {
-		switch endpoint {
-		case EndpointHealth, EndpointLiveness, EndpointReadiness, EndpointInfo:
-		case EndpointMetrics:
-			if !metrics {
-				return nil, errors.New("construct management handler: metrics endpoint requires an HTTP metrics collector")
-			}
-		case EndpointConfigProps:
-			if !configuration {
-				return nil, errors.New("construct management handler: configprops endpoint requires a configuration report")
-			}
-		case EndpointModules:
-			if !modules {
-				return nil, errors.New("construct management handler: modules endpoint requires a module report")
-			}
-		default:
-			return nil, fmt.Errorf(
-				"construct management handler: endpoint %d %q is unsupported",
-				index,
-				endpoint,
-			)
+		if err := validateEndpointCapability(endpoint, metrics, configuration, modules, logging); err != nil {
+			return nil, fmt.Errorf("construct management handler: endpoint %d: %w", index, err)
 		}
 		if _, duplicate := result[endpoint]; duplicate {
 			return nil, fmt.Errorf(
@@ -431,6 +428,32 @@ func exposedEndpoints(
 		result[endpoint] = struct{}{}
 	}
 	return result, nil
+}
+
+func validateEndpointCapability(endpoint Endpoint, metrics, configuration, modules, logging bool) error {
+	switch endpoint {
+	case EndpointHealth, EndpointLiveness, EndpointReadiness, EndpointInfo:
+		return nil
+	case EndpointMetrics:
+		if !metrics {
+			return errors.New("metrics endpoint requires an HTTP metrics collector")
+		}
+	case EndpointConfigProps:
+		if !configuration {
+			return errors.New("configprops endpoint requires a configuration report")
+		}
+	case EndpointModules:
+		if !modules {
+			return errors.New("modules endpoint requires a module report")
+		}
+	case EndpointLoggers:
+		if !logging {
+			return errors.New("loggers endpoint requires a logging controller")
+		}
+	default:
+		return fmt.Errorf("endpoint %q is unsupported", endpoint)
+	}
+	return nil
 }
 
 func (handler *Handler) exposes(endpoint Endpoint) bool {
@@ -449,6 +472,20 @@ func (handler *Handler) Pattern() string {
 		return ""
 	}
 	return http.MethodGet + " " + handler.basePath + "/"
+}
+
+// Patterns returns every method-specific pattern required by this handler.
+// Pattern remains the compatibility GET subtree; the exact POST pattern is
+// present only when runtime logger control is explicitly exposed.
+func (handler *Handler) Patterns() []string {
+	if handler == nil {
+		return nil
+	}
+	patterns := []string{handler.Pattern()}
+	if handler.exposes(EndpointLoggers) {
+		patterns = append(patterns, http.MethodPost+" "+handler.basePath+"/loggers")
+	}
+	return patterns
 }
 
 // ServeHTTP dispatches management requests without exposing other routes.
@@ -533,6 +570,65 @@ func (handler *Handler) serveModules(
 		http.StatusOK,
 		handler.modules,
 	); writeErr != nil {
+		return
+	}
+}
+
+func (handler *Handler) serveLoggers(writer http.ResponseWriter, _ *http.Request) {
+	if writeErr := web.WriteJSON(writer, http.StatusOK, handler.logging.Snapshot()); writeErr != nil {
+		return
+	}
+}
+
+func (handler *Handler) updateLoggers(writer http.ResponseWriter, request *http.Request) {
+	request.Body = http.MaxBytesReader(writer, request.Body, maximumLoggerUpdateBytes)
+	var update struct {
+		Scope string          `json:"scope"`
+		Level json.RawMessage `json:"level"`
+	}
+	decoder := json.NewDecoder(request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&update); err != nil || update.Scope == "" || len(update.Level) == 0 {
+		handler.writeLoggerUpdateProblem(writer, "Logger update requires exactly scope and level.")
+		return
+	}
+	var trailing any
+	if decoder.Decode(&trailing) != io.EOF {
+		handler.writeLoggerUpdateProblem(writer, "Logger update must contain one JSON object.")
+		return
+	}
+	if string(update.Level) == "null" {
+		if err := handler.logging.Reset(update.Scope); err != nil {
+			handler.writeLoggerUpdateProblem(writer, "Logger scope is unknown.")
+			return
+		}
+		writer.WriteHeader(http.StatusNoContent)
+		return
+	}
+	var encodedLevel string
+	if err := json.Unmarshal(update.Level, &encodedLevel); err != nil {
+		handler.writeLoggerUpdateProblem(writer, "Logger level is invalid.")
+		return
+	}
+	level, err := spicelogging.ParseLevel(encodedLevel)
+	if err != nil {
+		handler.writeLoggerUpdateProblem(writer, "Logger level is invalid.")
+		return
+	}
+	if err := handler.logging.Set(update.Scope, level); err != nil {
+		handler.writeLoggerUpdateProblem(writer, "Logger scope is unknown.")
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *Handler) writeLoggerUpdateProblem(writer http.ResponseWriter, detail string) {
+	if err := web.WriteProblem(writer, web.Problem{
+		Type:   "urn:spice:management:invalid-logger-update",
+		Title:  http.StatusText(http.StatusBadRequest),
+		Status: http.StatusBadRequest,
+		Detail: detail,
+	}); err != nil {
 		return
 	}
 }

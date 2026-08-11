@@ -113,6 +113,11 @@
       "reason": "Core cleanup, rollback, startup, and shutdown contracts."
     },
     {
+      "prefix": "logging",
+      "maturity": "preview-stable",
+      "reason": "Instance-owned structured records, handlers, scopes, levels, and safe error contracts."
+    },
+    {
       "prefix": "mail",
       "maturity": "preview-stable",
       "reason": "Transport-neutral immutable message and test sender contracts."

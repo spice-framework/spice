@@ -1,9 +1,11 @@
 package management
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/spice-framework/spice/config"
 	"github.com/spice-framework/spice/lifecycle"
+	spicelogging "github.com/spice-framework/spice/logging"
 	"github.com/spice-framework/spice/web"
 )
 
@@ -536,6 +539,65 @@ func TestHandlerExposesExactlyTheConfiguredEndpointAllowlist(t *testing.T) {
 	}
 }
 
+func TestHandlerExposesLoopbackLoggerLevelsAndUpdates(t *testing.T) {
+	t.Parallel()
+	manager, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	scope := spicelogging.Scope{Module: "example.com/app"}
+	logger, err := spicelogging.New(spicelogging.Options{
+		Application: "app", Handler: slog.DiscardHandler, Scopes: []spicelogging.Scope{scope},
+		Configuration: spicelogging.Configuration{Level: spicelogging.LevelInfo},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler, err := NewHandler(HandlerOptions{
+		Manager: manager, Logging: logger.Controller(), Expose: []Endpoint{EndpointLoggers},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(handler.Patterns(), []string{"GET /actuator/", "POST /actuator/loggers"}) {
+		t.Fatalf("Patterns() = %v", handler.Patterns())
+	}
+	response := serve(handler, http.MethodGet, "/actuator/loggers")
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"effective_level":"INFO"`) {
+		t.Fatalf("GET loggers = %d %s", response.Code, response.Body.String())
+	}
+	response = serveBody(handler, http.MethodPost, "/actuator/loggers", `{"scope":"`+scope.ID()+`","level":"debug"}`)
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("POST loggers = %d %s", response.Code, response.Body.String())
+	}
+	if got := logger.Controller().Snapshot().Scopes[1].EffectiveLevel; got != spicelogging.LevelDebug {
+		t.Fatalf("updated level = %s", got)
+	}
+	response = serveBody(handler, http.MethodPost, "/actuator/loggers", `{"scope":"`+scope.ID()+`","level":null}`)
+	if response.Code != http.StatusNoContent || logger.Controller().Snapshot().Scopes[1].Overridden {
+		t.Fatalf("reset = %d %#v", response.Code, logger.Controller().Snapshot())
+	}
+	for _, body := range []string{
+		`{"scope":"missing","level":"info"}`,
+		`{"scope":"root","level":"verbose"}`,
+		`{"scope":"root","level":"info","extra":true}`,
+		strings.Repeat("x", maximumLoggerUpdateBytes+1),
+	} {
+		response = serveBody(handler, http.MethodPost, "/actuator/loggers", body)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("POST %q = %d %s", body, response.Code, response.Body.String())
+		}
+	}
+	if _, err := NewHandler(HandlerOptions{
+		Manager: manager, Logging: logger.Controller(), Expose: []Endpoint{EndpointLoggers}, Access: AccessPublic,
+	}); err == nil {
+		t.Fatal("public loggers endpoint succeeded")
+	}
+	if _, err := NewHandler(HandlerOptions{Manager: manager, Expose: []Endpoint{EndpointLoggers}}); err == nil {
+		t.Fatal("loggers endpoint without controller succeeded")
+	}
+}
+
 func assertGroupStatus(t *testing.T, manager *Manager, group Group, want Status) {
 	t.Helper()
 	report, err := manager.Report(context.Background(), group)
@@ -546,6 +608,14 @@ func assertGroupStatus(t *testing.T, manager *Manager, group Group, want Status)
 
 func serve(handler http.Handler, method, target string) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(method, target, nil)
+	request.RemoteAddr = "127.0.0.1:49152"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	return response
+}
+
+func serveBody(handler http.Handler, method, target, body string) *httptest.ResponseRecorder {
+	request := httptest.NewRequest(method, target, bytes.NewBufferString(body))
 	request.RemoteAddr = "127.0.0.1:49152"
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)

@@ -29,7 +29,7 @@ const (
 	modulePath                 = "github.com/spice-framework/spice"
 	officialToolchainPath      = "github.com/spice-framework/toolchain"
 	expectedGoVersion          = "go1.26.5"
-	expectedPublicPackageCount = 51
+	expectedPublicPackageCount = 52
 	minimumCoverage            = 85.0
 )
 

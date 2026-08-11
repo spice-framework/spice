@@ -18,7 +18,7 @@ locks diagnostic ordering through mutation tests.
 The supplied policy document is retained as provenance by its SHA-256
 `0947169de8263c2d3d8971d18a7f8bff4837b62eb3f4aec39de920fdabba0182`.
 The reviewed normative `CODE_STYLE.md` schema-two contract has SHA-256
-`9beeec406dba8f9a6c288dd83d2bac60955885c7d5811c37518165cf94673f24`.
+`09c014e2d7eb93bf2b395e24e4e6ff2466c05d164d4778a11cf7433164bffb76`.
 Core does not run
 `spicestyle`, accept `.spice/style.json`, or own compiler implementation; the
 Toolchain must consume the schema-two contract before downstream repositories
@@ -55,7 +55,7 @@ catch package-local compile and behavior defects before paying for the broader
 repository contracts.
 
 `make test` deliberately combines race testing and coverage in one invocation
-across the exact 51 public packages. It enforces at least 85% aggregate
+across the exact 52 public packages. It enforces at least 85% aggregate
 public-source statement coverage without adding the repository-only quality
 gate to the denominator.
 
