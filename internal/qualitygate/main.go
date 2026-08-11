@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -15,6 +16,7 @@ import (
 	"go/token"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -62,6 +64,19 @@ func run(ctx context.Context, mode string) error {
 	if err != nil {
 		return err
 	}
+	if networkAllowed(mode) {
+		if err := checkGoVersion(); err != nil {
+			return err
+		}
+		if err := checkBootstrapContract(root); err != nil {
+			return err
+		}
+		return bootstrapTools(ctx, root, networkGo)
+	}
+	return runOfflineMode(ctx, root, mode)
+}
+
+func runOfflineMode(ctx context.Context, root, mode string) error {
 	switch mode {
 	case "fmt":
 		return format(ctx, root, true)
@@ -88,6 +103,10 @@ func run(ctx context.Context, mode string) error {
 	default:
 		return fmt.Errorf("unknown mode %q", mode)
 	}
+}
+
+func networkAllowed(mode string) bool {
+	return mode == "tools-bootstrap"
 }
 
 func verify(ctx context.Context, root string) error {
@@ -188,11 +207,14 @@ func publicPackages(ctx context.Context, root string) ([]string, error) {
 }
 
 func checkRepositoryContract(ctx context.Context, root string) error {
-	if err := checkFastTarget(root); err != nil {
-		return err
-	}
-	if err := checkReleaseContract(root); err != nil {
-		return err
+	for _, check := range []func(string) error{
+		checkFastTarget,
+		checkBootstrapContract,
+		checkReleaseContract,
+	} {
+		if err := check(root); err != nil {
+			return err
+		}
 	}
 	files, err := repositoryFiles(ctx, root)
 	if err != nil {
@@ -232,6 +254,126 @@ func checkRepositoryContract(ctx context.Context, root string) error {
 		return err
 	}
 	return checkImportDirections(root)
+}
+
+func checkBootstrapContract(root string) error {
+	makefile, err := os.ReadFile(filepath.Join(root, "Makefile")) // #nosec G304 -- root and Makefile path are repository-owned.
+	if err != nil {
+		return fmt.Errorf("read Makefile bootstrap target: %w", err)
+	}
+	normalizedMakefile := strings.ReplaceAll(string(makefile), "\r\n", "\n")
+	wantTarget := "\ntools-bootstrap:\n\tgo run ./internal/qualitygate -mode=tools-bootstrap\n"
+	if strings.Count(normalizedMakefile, wantTarget) != 1 {
+		return errors.New("tools-bootstrap target must invoke the explicit dependency bootstrap exactly once")
+	}
+
+	workflow, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "ci.yml")) // #nosec G304 -- root and CI workflow path are repository-owned.
+	if err != nil {
+		return fmt.Errorf("read CI bootstrap contract: %w", err)
+	}
+	normalizedWorkflow := strings.ReplaceAll(string(workflow), "\r\n", "\n")
+	bootstrap := "      - name: Bootstrap pinned tools\n        run: go run ./internal/qualitygate -mode=tools-bootstrap\n"
+	offlineVerify := "      - name: Verify offline\n        env:\n          GOPROXY: \"off\"\n          GOSUMDB: \"off\"\n          GOTOOLCHAIN: local\n          GOWORK: \"off\"\n        run: go run ./internal/qualitygate -mode=verify\n"
+	bootstrapIndex := strings.Index(normalizedWorkflow, bootstrap)
+	verifyIndex := strings.Index(normalizedWorkflow, offlineVerify)
+	if bootstrapIndex < 0 || verifyIndex <= bootstrapIndex ||
+		strings.Count(normalizedWorkflow, bootstrap) != 1 || strings.Count(normalizedWorkflow, offlineVerify) != 1 {
+		return errors.New("CI must bootstrap the exact pinned tools once before the exact offline verification step")
+	}
+	return nil
+}
+
+type bootstrapRunner func(context.Context, string, ...string) error
+
+func bootstrapTools(ctx context.Context, root string, runner bootstrapRunner) (returnErr error) {
+	before, err := sourceTreeDigests(root)
+	if err != nil {
+		return fmt.Errorf("snapshot repository before tools bootstrap: %w", err)
+	}
+	defer func() {
+		after, snapshotErr := sourceTreeDigests(root)
+		if snapshotErr != nil {
+			returnErr = errors.Join(returnErr, fmt.Errorf("snapshot repository after tools bootstrap: %w", snapshotErr))
+			return
+		}
+		if !maps.Equal(before, after) {
+			returnErr = errors.Join(returnErr, errors.New("tools bootstrap modified the repository"))
+		}
+	}()
+
+	rootSum := filepath.Join(root, "go.sum")
+	if _, statErr := os.Lstat(rootSum); statErr == nil {
+		return errors.New("standard-library-only root graph must not contain go.sum")
+	} else if !errors.Is(statErr, fs.ErrNotExist) {
+		return fmt.Errorf("inspect root go.sum: %w", statErr)
+	}
+	toolsDirectory := filepath.Join(root, "tools")
+	moduleContent, err := os.ReadFile(filepath.Join(toolsDirectory, "go.mod")) // #nosec G304 -- tools module path is repository-owned.
+	if err != nil {
+		return fmt.Errorf("read tools/go.mod: %w", err)
+	}
+	sumContent, err := os.ReadFile(filepath.Join(toolsDirectory, "go.sum")) // #nosec G304 -- tools checksum path is repository-owned.
+	if err != nil {
+		return fmt.Errorf("read tools/go.sum: %w", err)
+	}
+
+	temporary, err := os.MkdirTemp("", "spice-core-tools-bootstrap-*")
+	if err != nil {
+		return fmt.Errorf("create tools bootstrap directory: %w", err)
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, removeTemporaryDirectory(temporary))
+	}()
+	temporaryRoot, err := os.OpenRoot(temporary)
+	if err != nil {
+		return fmt.Errorf("open tools bootstrap directory: %w", err)
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, temporaryRoot.Close())
+	}()
+	if err := temporaryRoot.WriteFile("tools.mod", moduleContent, 0o600); err != nil {
+		return fmt.Errorf("write temporary tools.mod: %w", err)
+	}
+	if err := temporaryRoot.WriteFile("tools.sum", sumContent, 0o600); err != nil {
+		return fmt.Errorf("write temporary tools.sum: %w", err)
+	}
+	return runner(ctx, root, bootstrapDownloadArguments(filepath.Join(temporary, "tools.mod"))...)
+}
+
+func bootstrapDownloadArguments(moduleFile string) []string {
+	return []string{"mod", "download", "-modfile=" + moduleFile, "all"}
+}
+
+func sourceTreeDigests(root string) (_ map[string][sha256.Size]byte, returnErr error) {
+	opened, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, fmt.Errorf("open repository tree: %w", err)
+	}
+	defer func() {
+		returnErr = errors.Join(returnErr, opened.Close())
+	}()
+	digests := make(map[string][sha256.Size]byte)
+	err = fs.WalkDir(opened.FS(), ".", func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() && (path == ".git" || path == ".tmp") {
+			return fs.SkipDir
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		content, readErr := opened.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("read repository file %s: %w", filepath.ToSlash(path), readErr)
+		}
+		digests[filepath.ToSlash(path)] = sha256.Sum256(content)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("digest repository tree: %w", err)
+	}
+	return digests, nil
 }
 
 func repositoryFiles(ctx context.Context, root string) ([]string, error) {
@@ -733,6 +875,25 @@ func toolPath(ctx context.Context, root, name string) (string, error) {
 
 func runGo(ctx context.Context, directory string, environment map[string]string, args ...string) error {
 	return command(ctx, directory, environment, "go", args...)
+}
+
+func networkGo(ctx context.Context, directory string, args ...string) error {
+	return runGo(ctx, directory, bootstrapEnvironment(), args...)
+}
+
+func bootstrapEnvironment() map[string]string {
+	return map[string]string{
+		"GOAUTH":      "off",
+		"GOENV":       "off",
+		"GOFLAGS":     "",
+		"GONOPROXY":   "",
+		"GONOSUMDB":   "",
+		"GOPRIVATE":   "",
+		"GOPROXY":     "https://proxy.golang.org",
+		"GOSUMDB":     "sum.golang.org",
+		"GOTOOLCHAIN": "local",
+		"GOWORK":      "off",
+	}
 }
 
 func captureGo(ctx context.Context, directory string, environment map[string]string, args ...string) (string, error) {

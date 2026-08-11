@@ -17,21 +17,25 @@ identity:
   "profile": "go-module-v1",
   "repository": "spice",
   "module": "github.com/spice-framework/spice",
-  "version": "v0.1.0-preview.3"
+  "version": "v0.1.0-preview.4"
 }
 ```
 
-It must pass `make verify-release` under Go 1.26.5. That command is an
-unconditional alias for the complete core `make verify` contract. The reusable
-workflow additionally requires a canonical SemVer tag at the exact checked-out
-commit, a clean tree, public `spice-framework` ownership, the canonical module
-identity, and ancestry from `origin/main`.
+On an empty module cache, `make tools-bootstrap` first copies the committed
+`tools/go.mod` and `tools/go.sum` into an external temporary `tools.mod` and
+`tools.sum`, downloads only that exact public graph, and proves the repository
+bytes did not change. It must then pass `make verify-release` with network
+resolution disabled under Go 1.26.5. That command is an unconditional alias for
+the complete core `make verify` contract. The reusable workflow additionally
+requires a canonical SemVer tag at the exact checked-out commit, a clean tree,
+public `spice-framework` ownership, the canonical module identity, and ancestry
+from `origin/main`.
 
 The repository caller is deliberately closed:
 
 - it pins
   `spice-framework/.github/.github/workflows/go-module-release.yml` at commit
-  `9555dd71eccea98cfa82ca2bff27cedd9d154e4a`;
+  `fde3eccd4770233904f9adca0ebd35687f119d0e`;
 - it repeats that revision through the required `workflow_commit` input;
 - repository-level permissions are empty;
 - the release job grants only `contents:write`, `id-token:write`,
@@ -45,14 +49,14 @@ version fails before a candidate can be accepted.
 ## Keyless artifact contract
 
 The organization workflow builds the renderer from immutable development
-commit `6210baa460975be0bfcb12c919cab307da8c3f46`. It produces exactly four
+commit `678a8d7ce5b20d9f2509f089b918154894064fc1`. It produces exactly four
 deterministic module artifacts:
 
-- `spice_0.1.0-preview.3_source.tar.gz` containing the tagged committed tree
+- `spice_0.1.0-preview.4_source.tar.gz` containing the tagged committed tree
   below one versioned root;
-- `spice_0.1.0-preview.3_sbom.spdx.json` containing the one-module SPDX 2.3
+- `spice_0.1.0-preview.4_sbom.spdx.json` containing the one-module SPDX 2.3
   graph;
-- `spice_0.1.0-preview.3_release.json` binding repository, module, version,
+- `spice_0.1.0-preview.4_release.json` binding repository, module, version,
   commit, source epoch, Go version, and artifact digests; and
 - `checksums.txt` containing canonical SHA-256 entries.
 
@@ -65,7 +69,7 @@ tracked `vendor/` path fails.
 
 The workflow independently builds
 `spice-go-release-verify` from toolchain commit
-`0bb834c688ae42865a65deb9b8c00d033d359c9d`. That verifier authenticates the
+`93547dc3053b3da2dd4a2791bbc881217a9a50d7`. That verifier authenticates the
 exact Git source, archive, metadata, SBOM, checksums, module policy, and clean
 tag identity, then copies only accepted bytes into a new verifier-owned
 directory. Renderer output is never passed directly to signing or publication.
@@ -104,15 +108,24 @@ The published preview.2 release remains bound to its own immutable historical
 authorities: organization workflow
 `6a0ba9f430304c33bf897f4e2d3f393926f42eb9`, development renderer
 `67b9ca3f20793da881beeea05910042a81ad9877`, and independent toolchain verifier
-`83c2a7e41945f8e7ce187f5fb333158c4e6ff223`. Preview.3 does not move or reuse
-those authorities; its candidate gate accepts only the current commits above.
+`83c2a7e41945f8e7ce187f5fb333158c4e6ff223`.
+
+The immutable `v0.1.0-preview.3` tag targets candidate commit
+`ea7499ddea29cc7a74216ae3569cb26bc9633355`. Release run `31475650316` stopped
+in unprivileged candidate validation because that candidate did not yet provide
+the required `make tools-bootstrap` target. Rendering, independent verification,
+both protected deployments, attestation, and publication never ran; no
+preview.3 GitHub Release or assets exist. The tag is not moved or reused.
+Preview.4 is the recovery version and accepts only the current organization,
+development, and toolchain commits above.
 
 ## Release ceremony
 
 1. Verify the exact candidate metadata, workflow pin, protected environments,
    deployment policies, and immutable tag rules.
-2. Run `make fast`, `make check`, and `make verify-release` in a clean checkout
-   and require hosted CI for the exact commit to pass.
+2. In empty caches, run `make tools-bootstrap`, disable network resolution, then
+   run `make fast`, `make check`, and `make verify-release` in a clean checkout;
+   require hosted CI for the exact commit to pass.
 3. Rehearse the immutable development renderer and independent toolchain
    verifier against the exact candidate in disposable local storage.
 4. Create and push one annotated canonical SemVer tag targeting the accepted
@@ -125,6 +138,6 @@ those authorities; its candidate gate accepts only the current commits above.
    the Sigstore bundle and exact workflow identity, and confirm the remote tag
    object and peeled commit remain unchanged.
 
-Committing this candidate does not publish preview.3. The version exists only
+Committing this candidate does not publish preview.4. The version exists only
 after the immutable tag completes this ceremony and the downloaded assets are
 independently authenticated.

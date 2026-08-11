@@ -1,4 +1,7 @@
-.PHONY: check coverage fast fmt fuzz lint offline security test vet verify verify-release
+.PHONY: tools-bootstrap check coverage fast fmt fuzz lint offline security test vet verify verify-release
+
+tools-bootstrap:
+	go run ./internal/qualitygate -mode=tools-bootstrap
 
 check:
 	go run ./internal/qualitygate -mode=check

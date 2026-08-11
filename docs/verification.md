@@ -29,6 +29,7 @@ can claim the new selection and rule-ownership guarantees are executable.
 Use focused package tests while editing, then:
 
 ```text
+make tools-bootstrap # explicit one-time download of the exact pinned tools graph
 make fast      # changed packages plus their reverse import/test-import closure
 make check     # version, boundaries, docs, formatting, tidy/vendor, and vet
 make lint      # allowlisted golangci-lint plus NilAway
@@ -72,6 +73,17 @@ The root module is standard-library-only. Verification runs root and tools
 and reproduces the expected empty vendor result. The isolated `tools` module
 pins quality binaries without entering the public runtime graph.
 
+`make tools-bootstrap` is the only quality-gate mode that deliberately permits
+Go module resolution. It copies the committed tools graph into an external
+temporary `tools.mod` and `tools.sum`, downloads `all` from that exact alternate
+modfile with Go
+authentication disabled and public-module settings, removes the temporary
+files, and compares whole-repository SHA-256 digests before and after on success,
+failure, or cancellation. It never downloads the standard-library-only root
+graph, refuses a root `go.sum`, and leaves both committed module graphs byte
+identical. All other quality modes assume the pinned graph is already in the
+caller's module cache.
+
 The offline phase sets `GOPROXY=off`, `GOSUMDB=off`, `GOWORK=off`, and
 `GOTOOLCHAIN=local`, then tests every public package with `-mod=vendor`.
 Because core has no third-party dependencies, this is a literal vendor-only
@@ -97,9 +109,11 @@ The separately versioned repositories own their specialized gates:
 
 Run `make verify` on the exact tree before a core commit. Release decisions
 add the coordinated ecosystem evidence; they do not weaken or bypass this gate.
-`make verify-release` deliberately executes the same complete verifier and is
-the only candidate-owned command run by the pinned organization keyless
-source-release workflow. It runs before any OIDC, attestation, or publication
+The hosted CI and pinned organization release workflow use empty or isolated
+caches, run `make tools-bootstrap` once without release authority, and then set
+`GOPROXY=off` and `GOSUMDB=off` for `make verify` or `make verify-release`.
+`make verify-release` deliberately executes the same complete verifier. Both
+candidate-owned commands run before any OIDC, attestation, or publication
 authority exists. Subsequent rendering and independent verification use
 separately pinned organization repositories and treat this checkout as inert
 source input.

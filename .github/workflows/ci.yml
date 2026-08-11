@@ -33,7 +33,14 @@ jobs:
           go-version: 1.26.5
           cache: true
           cache-dependency-path: tools/go.sum
-      - name: Verify
+      - name: Bootstrap pinned tools
+        run: go run ./internal/qualitygate -mode=tools-bootstrap
+      - name: Verify offline
+        env:
+          GOPROXY: "off"
+          GOSUMDB: "off"
+          GOTOOLCHAIN: local
+          GOWORK: "off"
         run: go run ./internal/qualitygate -mode=verify
 
   cross-build:

@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	releaseWorkflowRevision = "9555dd71eccea98cfa82ca2bff27cedd9d154e4a"
-	releaseVersion          = "v0.1.0-preview.3"
+	releaseWorkflowRevision = "fde3eccd4770233904f9adca0ebd35687f119d0e"
+	releaseVersion          = "v0.1.0-preview.4"
 )
 
 func checkReleaseContract(root string) error {
@@ -91,7 +91,7 @@ func checkReleaseIntent(root string) error {
 		return fmt.Errorf("read release intent: %w", err)
 	}
 	if string(content) != expectedReleaseIntent() {
-		return errors.New("release intent must be the exact canonical go-module-v1 preview.3 identity")
+		return errors.New("release intent must be the exact canonical go-module-v1 preview.4 identity")
 	}
 	return nil
 }
