@@ -7,6 +7,11 @@ import (
 	"testing"
 )
 
+const (
+	preview2ReleaseWorkflowRevision = "6a0ba9f430304c33bf897f4e2d3f393926f42eb9"
+	preview2ReleaseVersion          = "v0.1.0-preview.2"
+)
+
 func TestCheckVerifyReleaseTarget(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -45,6 +50,9 @@ func TestCheckReleaseWorkflow(t *testing.T) {
 		{name: "wrong revision", mutate: func(content string) string {
 			return strings.Replace(content, releaseWorkflowRevision, strings.Repeat("0", 40), 1)
 		}, wantErr: true},
+		{name: "stale preview2 revision", mutate: func(content string) string {
+			return strings.ReplaceAll(content, releaseWorkflowRevision, preview2ReleaseWorkflowRevision)
+		}, wantErr: true},
 		{name: "wrong module", mutate: func(content string) string {
 			return strings.Replace(content, modulePath, modulePath+"-wrong", 1)
 		}, wantErr: true},
@@ -77,6 +85,9 @@ func TestCheckReleaseWorkflow(t *testing.T) {
 		}, wantErr: true},
 		{name: "wrong workflow commit input", mutate: func(content string) string {
 			return strings.Replace(content, "      workflow_commit: "+releaseWorkflowRevision, "      workflow_commit: "+strings.Repeat("0", 40), 1)
+		}, wantErr: true},
+		{name: "stale preview2 workflow commit input", mutate: func(content string) string {
+			return strings.Replace(content, "      workflow_commit: "+releaseWorkflowRevision, "      workflow_commit: "+preview2ReleaseWorkflowRevision, 1)
 		}, wantErr: true},
 		{name: "distribution workflow", mutate: func(content string) string {
 			return strings.Replace(content, "go-module-release.yml", "go-distribution-release.yml", 1)
@@ -113,6 +124,7 @@ func TestCheckReleaseIntent(t *testing.T) {
 	}{
 		{name: "exact intent", content: expectedReleaseIntent()},
 		{name: "wrong version", content: strings.Replace(expectedReleaseIntent(), releaseVersion, "v0.1.0-preview.1", 1), wantErr: true},
+		{name: "stale preview2 version", content: strings.Replace(expectedReleaseIntent(), releaseVersion, preview2ReleaseVersion, 1), wantErr: true},
 		{name: "wrong schema", content: strings.Replace(expectedReleaseIntent(), "\"schema\": 1", "\"schema\": 2", 1), wantErr: true},
 		{name: "wrong profile", content: strings.Replace(expectedReleaseIntent(), "go-module-v1", "go-distribution-v1", 1), wantErr: true},
 		{name: "wrong repository", content: strings.Replace(expectedReleaseIntent(), "\"repository\": \"spice\"", "\"repository\": \"other\"", 1), wantErr: true},

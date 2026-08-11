@@ -17,7 +17,7 @@ identity:
   "profile": "go-module-v1",
   "repository": "spice",
   "module": "github.com/spice-framework/spice",
-  "version": "v0.1.0-preview.2"
+  "version": "v0.1.0-preview.3"
 }
 ```
 
@@ -31,7 +31,7 @@ The repository caller is deliberately closed:
 
 - it pins
   `spice-framework/.github/.github/workflows/go-module-release.yml` at commit
-  `6a0ba9f430304c33bf897f4e2d3f393926f42eb9`;
+  `9555dd71eccea98cfa82ca2bff27cedd9d154e4a`;
 - it repeats that revision through the required `workflow_commit` input;
 - repository-level permissions are empty;
 - the release job grants only `contents:write`, `id-token:write`,
@@ -45,14 +45,14 @@ version fails before a candidate can be accepted.
 ## Keyless artifact contract
 
 The organization workflow builds the renderer from immutable development
-commit `67b9ca3f20793da881beeea05910042a81ad9877`. It produces exactly four
+commit `6210baa460975be0bfcb12c919cab307da8c3f46`. It produces exactly four
 deterministic module artifacts:
 
-- `spice_0.1.0-preview.2_source.tar.gz` containing the tagged committed tree
+- `spice_0.1.0-preview.3_source.tar.gz` containing the tagged committed tree
   below one versioned root;
-- `spice_0.1.0-preview.2_sbom.spdx.json` containing the one-module SPDX 2.3
+- `spice_0.1.0-preview.3_sbom.spdx.json` containing the one-module SPDX 2.3
   graph;
-- `spice_0.1.0-preview.2_release.json` binding repository, module, version,
+- `spice_0.1.0-preview.3_release.json` binding repository, module, version,
   commit, source epoch, Go version, and artifact digests; and
 - `checksums.txt` containing canonical SHA-256 entries.
 
@@ -65,7 +65,7 @@ tracked `vendor/` path fails.
 
 The workflow independently builds
 `spice-go-release-verify` from toolchain commit
-`83c2a7e41945f8e7ce187f5fb333158c4e6ff223`. That verifier authenticates the
+`0bb834c688ae42865a65deb9b8c00d033d359c9d`. That verifier authenticates the
 exact Git source, archive, metadata, SBOM, checksums, module policy, and clean
 tag identity, then copies only accepted bytes into a new verifier-owned
 directory. Renderer output is never passed directly to signing or publication.
@@ -80,7 +80,7 @@ published as `provenance.sigstore.json` beside the four artifacts.
 ## Protected authority and immutable tags
 
 No long-lived release key or Actions secret is used or forwarded by the
-preview.2 path. Two
+preview.2-and-later path. Two
 secret-free protected environments separate authority:
 
 1. `release-attestation` approves the only job that receives OIDC,
@@ -97,7 +97,15 @@ be followed by a new version; it is never moved or reused.
 The Ed25519 key retained at
 [`security/release/history/v0.1.0-preview.1-ed25519-public.pem`](../security/release/history/v0.1.0-preview.1-ed25519-public.pem)
 belongs only to the legacy preview.1 design. Preview.1 did not complete a
-GitHub Release, and that key is not part of the preview.2 trust contract.
+GitHub Release, and that key is not part of the preview.2-and-later trust
+contract.
+
+The published preview.2 release remains bound to its own immutable historical
+authorities: organization workflow
+`6a0ba9f430304c33bf897f4e2d3f393926f42eb9`, development renderer
+`67b9ca3f20793da881beeea05910042a81ad9877`, and independent toolchain verifier
+`83c2a7e41945f8e7ce187f5fb333158c4e6ff223`. Preview.3 does not move or reuse
+those authorities; its candidate gate accepts only the current commits above.
 
 ## Release ceremony
 
@@ -117,6 +125,6 @@ GitHub Release, and that key is not part of the preview.2 trust contract.
    the Sigstore bundle and exact workflow identity, and confirm the remote tag
    object and peeled commit remain unchanged.
 
-Committing this candidate does not publish preview.2. The version exists only
+Committing this candidate does not publish preview.3. The version exists only
 after the immutable tag completes this ceremony and the downloaded assets are
 independently authenticated.

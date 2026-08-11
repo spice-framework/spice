@@ -18,7 +18,7 @@ No security feature is considered complete without negative tests and documented
 
 ## Release authenticity
 
-Core preview.2 source releases use GitHub artifact attestations backed by
+Core preview.2-and-later source releases use GitHub artifact attestations backed by
 Sigstore, not a long-lived repository or organization signing key. Candidate
 validation and independently pinned rendering and verification have only read
 authority. The secret-free protected `release-attestation` job alone receives
@@ -33,6 +33,7 @@ provenance. Release tags cannot be updated or deleted.
 
 The public key under `security/release/history/` is retained only to audit the
 legacy preview.1 design, which did not produce a completed GitHub Release. It
-is not an active preview.2 trust anchor. Report any suspected OIDC or workflow
-identity mismatch, tag-rule bypass, workflow-pin drift, artifact substitution,
-or checksum/attestation mismatch through the private channel above.
+is not an active preview.2-and-later trust anchor. Report any suspected OIDC or
+workflow identity mismatch, tag-rule bypass, workflow-pin drift, artifact
+substitution, or checksum/attestation mismatch through the private channel
+above.
