@@ -17,7 +17,10 @@ Go-native semantics, one primary type per ordinary handwritten file, behavior
 owned by named types, constructor injection, explicit module boundaries, and
 generated direct-call wiring. The separately versioned Toolchain owns the
 standalone structural analyzer and the typed Spice-aware verification phase;
-core owns the canonical contract and descriptor inventory.
+core owns the canonical contract, strict schema-two configuration semantics,
+stable diagnostic namespace, supplied-policy provenance, and descriptor
+inventory. Publishing that contract does not move analyzer, compiler, CLI, or
+LSP implementation into core.
 
 ## Repository boundaries
 

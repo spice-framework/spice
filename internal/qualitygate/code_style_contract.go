@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	expectedCodeStyleSHA256      = "8A58866FE06FF4E6BFC6D5D7CC9B01EF053D8D8DCBEE5E4E7BEF7F6CDCEC15DD"
-	expectedStyleDescriptorCount = 35
+	expectedCodeStyleSHA256         = "9BEEEC406DBA8F9A6C288DD83D2BAC60955885C7D5811C37518165CF94673F24"
+	expectedSuppliedCodeStyleSHA256 = "0947169de8263c2d3d8971d18a7f8bff4837b62eb3f4aec39de920fdabba0182"
+	expectedStyleDescriptorCount    = 35
 )
 
 type codeStyleContract struct {
@@ -37,11 +38,13 @@ func (contract codeStyleContract) check() error {
 	for _, required := range []string{
 		"**Status:** Normative for application code",
 		"**Profile name:** `java-structured`",
+		"**Supplied policy provenance SHA-256:** `" + expectedSuppliedCodeStyleSHA256 + "`",
 		"# Part IX — Automated enforcement implementation",
-		"\"schemaVersion\": 1",
 		"\"packageFunctions\": \"error\"",
 		"\"packageVariableExceptions\": [",
 		"Symbol patterns, file-wide variable exceptions, and",
+		"spice.style.configuration.unsupported-rule",
+		"spice.style.configuration.build-selection",
 		"spice.style.file.one-primary-type",
 		"spice.style.route.classification",
 	} {
@@ -51,6 +54,9 @@ func (contract codeStyleContract) check() error {
 	}
 	if bytes.Contains(content, []byte("\"packageFunctions\": \"deny\"")) {
 		return fmt.Errorf("CODE_STYLE.md contains retired packageFunctions level deny")
+	}
+	if configurationErr := validateStyleConfigurationContract(content); configurationErr != nil {
+		return configurationErr
 	}
 	table := styleDescriptorTable(content)
 	if len(table) != expectedStyleDescriptorCount {

@@ -34,7 +34,12 @@ The early-phase source contract is now explicitly standardized by
 strict structural inventory, typed Spice-aware validation, changed-code
 enforcement, behavior-preserving package-by-feature migration, and finally
 repository-wide enforcement. New scaffolds must emit the profile rather than
-creating new legacy-shaped source.
+creating new legacy-shaped source. Core now owns the schema-two contract for
+one shared structural-and-typed configuration, including exact source-root and
+build-selection semantics plus fail-closed rule ownership. The next executable
+slice remains Toolchain-owned: its decoder, standalone analyzer, compiler
+service, CLI, LSP, and scaffold output must consume that contract before
+applications adopt schema two.
 
 ## Current developer-proof priority
 

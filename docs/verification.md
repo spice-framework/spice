@@ -10,7 +10,19 @@ contract against the complete official annotation descriptor inventory. The
 separately versioned Toolchain executes structural and Spice-aware profile
 analysis in consuming applications; core prevents the normative document,
 schema, diagnostic namespace, descriptor table, and exact reviewed SHA-256
-identity from drifting silently.
+identity from drifting silently. It also strictly decodes the canonical
+schema-two JSON example, validates exact source/build selections, proves every
+configured rule has a declared structural or typed implementation owner, and
+locks diagnostic ordering through mutation tests.
+
+The supplied policy document is retained as provenance by its SHA-256
+`0947169de8263c2d3d8971d18a7f8bff4837b62eb3f4aec39de920fdabba0182`.
+The reviewed normative `CODE_STYLE.md` schema-two contract has SHA-256
+`9beeec406dba8f9a6c288dd83d2bac60955885c7d5811c37518165cf94673f24`.
+Core does not run
+`spicestyle`, accept `.spice/style.json`, or own compiler implementation; the
+Toolchain must consume the schema-two contract before downstream repositories
+can claim the new selection and rule-ownership guarantees are executable.
 
 ## Feedback loop
 

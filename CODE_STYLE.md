@@ -3,6 +3,7 @@
 **File:** `CODE_STYLE.md`
 **Status:** Normative for application code
 **Profile name:** `java-structured`
+**Supplied policy provenance SHA-256:** `0947169de8263c2d3d8971d18a7f8bff4837b62eb3f4aec39de920fdabba0182`
 **Reviewed Spice baseline:** `spice-framework/spice@53b0098533b2fb4002db2de990d87dced73dc33f`
 **Reviewed Toolchain baseline:** `spice-framework/toolchain@bab8bcaf7d0c6311237b34812c681c3ee6a6593b`
 **Reviewed reference application:** `spice-framework/petclinic@7e5a91efaa6f56a9c887ddac3d44304dc232a406`
@@ -2028,10 +2029,12 @@ go tool github.com/spice-framework/toolchain/cmd/spice \
     ./...
 ```
 
-The reviewed Toolchain baseline includes the first typed compiler profile. The
-standalone `spicestyle` structural command and strict schema-one configuration
-specified below are the executable enforcement surface completed by this
-adoption work.
+The reviewed Toolchain baseline includes the first typed compiler profile and
+the original schema-one structural configuration. Schema two below is the
+canonical shared structural-and-typed configuration contract. A Toolchain
+release MUST implement and verify that contract before an application adopts a
+schema-two file; documentation MUST NOT present contract publication alone as
+executable enforcement.
 
 ---
 
@@ -2239,8 +2242,12 @@ go tool github.com/spice-framework/toolchain/cmd/spice verify \
 ```
 
 Run the standalone structural analyzer beside `spice verify`; the latter owns
-the typed Spice-aware phase. Both commands use the same `java-structured`
-profile identity and stable diagnostic namespace.
+the typed Spice-aware phase. Both commands MUST decode the same immutable
+`.spice/style.json` configuration through one Toolchain-owned decoder. Neither
+phase may reinterpret the schema, silently ignore a field, or accept an enabled
+rule for which the current Toolchain has registered no implementation. Both
+commands use the same `java-structured` profile identity and stable diagnostic
+namespace.
 
 ---
 
@@ -2250,7 +2257,7 @@ Use JSON to match Spice's existing manifest-oriented tooling and avoid configura
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "profile": "java-structured",
   "sourceRoots": [
     "cmd",
@@ -2258,6 +2265,56 @@ Use JSON to match Spice's existing manifest-oriented tooling and avoid configura
   ],
   "generatedRoots": [
     "internal/spicegen"
+  ],
+  "buildSelections": [
+    {
+      "name": "linux-amd64-default",
+      "sourceRoots": [
+        "cmd",
+        "internal"
+      ],
+      "goos": "linux",
+      "goarch": "amd64",
+      "cgoEnabled": false,
+      "tags": []
+    },
+    {
+      "name": "linux-amd64-spice-acceptance",
+      "sourceRoots": [
+        "cmd",
+        "internal"
+      ],
+      "goos": "linux",
+      "goarch": "amd64",
+      "cgoEnabled": false,
+      "tags": [
+        "spice_acceptance"
+      ]
+    },
+    {
+      "name": "windows-amd64-default",
+      "sourceRoots": [
+        "cmd",
+        "internal"
+      ],
+      "goos": "windows",
+      "goarch": "amd64",
+      "cgoEnabled": false,
+      "tags": []
+    },
+    {
+      "name": "windows-amd64-spice-acceptance",
+      "sourceRoots": [
+        "cmd",
+        "internal"
+      ],
+      "goos": "windows",
+      "goarch": "amd64",
+      "cgoEnabled": false,
+      "tags": [
+        "spice_acceptance"
+      ]
+    }
   ],
   "rules": {
     "onePrimaryTypePerFile": "error",
@@ -2328,11 +2385,59 @@ Use JSON to match Spice's existing manifest-oriented tooling and avoid configura
 }
 ```
 
-The configuration MUST fail on unknown fields and unsupported schema versions.
+Schema two is a fail-closed replacement for schema one. A schema-one file MUST
+receive an actionable migration diagnostic; it MUST NOT be interpreted as
+schema two by defaults. The configuration MUST fail on unknown fields,
+unsupported schema versions, duplicate values, noncanonical order, and enabled
+rules without a registered implementation in the current Toolchain.
+
+`sourceRoots` is the complete application-source universe. Each build selection
+names an exact non-empty subset of those roots and the union of all selections
+MUST cover every configured source root. Selection roots MUST NOT escape the
+repository or name an undeclared source root. A generated root nested inside a
+selection remains excluded from handwritten input; it MUST NOT be reintroduced
+as a separate selection root.
+
+Every selection is one exact build context, not a cross product. `goos` and
+`goarch` MUST form a pair supported by the repository's pinned Go version;
+`cgoEnabled` is mandatory; and `tags` is a sorted, duplicate-free list of
+positive build-tag identifiers. Boolean tag expressions, implicit tags from
+ambient `GOFLAGS`, and ambient `GOOS`, `GOARCH`, or `CGO_ENABLED` are forbidden.
+The Toolchain MUST load every selection independently, associate load failures
+with its stable name, deterministically merge duplicate source diagnostics, and
+report a selected handwritten file that is unreachable from every selection.
+
+Build selections MUST be sorted by `goos`, `goarch`, `cgoEnabled`, tags, roots,
+and name. This ordering makes configuration review and machine output stable.
 Package-variable exceptions are exact interoperability boundaries: file glob,
 symbol, and resolved Go type must all match, and both a reason and issue/ADR
 identifier are mandatory. Symbol patterns, file-wide variable exceptions, and
 type wildcards are forbidden.
+
+### 51.1 Rule implementation ownership
+
+Every configurable rule has at least one required implementation phase. A
+Toolchain that does not register every required phase for an enabled rule MUST
+reject the configuration with
+`spice.style.configuration.unsupported-rule`; accepting a no-op setting is a
+verification defect.
+
+| Rule | Required phase | Required diagnostic family |
+|---|---|---|
+| `onePrimaryTypePerFile` | structural | `spice.style.file.one-primary-type` |
+| `methodsInPrimaryTypeFile` | structural | `spice.style.file.method-owner` |
+| `fileNameMatchesType` | structural | `spice.style.file.name` |
+| `packageFunctions` | structural + typed | `spice.style.function.package-level` |
+| `explicitConstructors` | typed | `spice.style.constructor.explicit`, `spice.style.constructor.name`, `spice.style.constructor.location` |
+| `explicitManagedScopes` | typed | `spice.style.bean.scope` |
+| `banInit` | structural | `spice.style.function.init` |
+| `banMutablePackageState` | structural | `spice.style.package.mutable-global` |
+| `privateManagedFields` | typed | `spice.style.bean.fields-private` |
+| `moduleOwnership` | typed | `spice.style.package.module`, `spice.style.module.dependency` |
+| `routeClassification` | typed | `spice.style.route.classification` |
+| `contextFirst` | structural | `spice.style.context.first`, `spice.style.context.stored` |
+| `errorLast` | structural | `spice.style.error.last` |
+| `maxTypeFileLines` | structural | `spice.style.file.lines` |
 
 ---
 
@@ -2342,10 +2447,15 @@ Use stable namespaced codes.
 
 | Code | Meaning |
 |---|---|
+| `spice.style.configuration.schema` | Invalid JSON, unknown field, or unsupported schema version |
+| `spice.style.configuration.unsupported-rule` | Enabled rule lacks a required implementation phase |
+| `spice.style.configuration.source-selection` | Source root is invalid, undeclared, generated, or uncovered |
+| `spice.style.configuration.build-selection` | Build tuple, tag set, identity, or ordering is invalid |
 | `spice.style.file.one-primary-type` | File has zero/multiple types without a boundary exception |
 | `spice.style.file.name` | Filename does not match primary type |
 | `spice.style.file.method-owner` | Method is not in receiver type file |
 | `spice.style.file.unrelated-declaration` | Declaration is unrelated to primary type |
+| `spice.style.file.lines` | Primary type file exceeds the configured limit |
 | `spice.style.function.package-level` | Unapproved free function |
 | `spice.style.function.init` | Handwritten `init` function |
 | `spice.style.constructor.name` | Invalid constructor/factory name |
@@ -2373,6 +2483,22 @@ Diagnostics MUST include exact source ranges and safe related information.
 ---
 
 ## 53. Structural analyzer algorithm
+
+### 53.0 Establish the selected source set
+
+Before inspecting declarations:
+
+1. strictly decode schema two once;
+2. verify that every enabled rule has all required implementation phases;
+3. validate and canonicalize declared source and generated roots;
+4. validate the complete ordered build-selection set;
+5. load each exact build context with ambient build selection disabled;
+6. reject selected handwritten files not reached by any context;
+7. merge identical physical diagnostics deterministically while retaining the
+   ordered selection identities as related information.
+
+Configuration diagnostics stop source analysis. A partial selection result is
+not evidence that the repository conforms.
 
 ### 53.1 Generated files
 
@@ -2455,7 +2581,7 @@ Never decide that a function is a bean merely because its comment contains the t
 
 ## 54. Suppression policy
 
-Suppressions are exceptional and auditable. Schema-one enforcement supports
+Suppressions are exceptional and auditable. Schema-two enforcement supports
 only the exact configuration-owned function and variable exceptions above.
 The following declaration-local syntax is reserved for a later schema and is
 not accepted by current tooling:
