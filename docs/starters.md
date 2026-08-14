@@ -8,6 +8,15 @@ package scanning. The root `starter` package temporarily re-exports compatible
 aliases so existing integrations remain source compatible during repository
 extraction; new integrations should import the SDK package directly.
 
+Every published starter also generates the uniform schema-1
+`spice.module.json` envelope defined by `project.ModuleMetadata`. That file
+declares starter kind/name/module, Spice compatibility, capabilities,
+configuration prefixes, annotation/compiler/public packages, documentation,
+and generated-code requirements. It is committed and authenticated as ordinary
+Go module content. The more detailed `spice.starter/v1` record below remains
+the typed annotation and composition contract during migration; neither file
+activates a starter by dependency presence.
+
 ## Compatibility record
 
 Every manifest declares:

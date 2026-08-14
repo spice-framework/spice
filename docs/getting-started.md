@@ -1,7 +1,7 @@
 # Getting started
 
 This guide builds and runs the Petclinic reference application using ordinary
-Go source and inspectable generated Go. It requires Go 1.26.5. No database,
+Go source and inspectable generated Go. It requires Go 1.26.6. No database,
 container, or network download is needed after the application's declared
 module and tool dependencies are present.
 

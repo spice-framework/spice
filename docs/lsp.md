@@ -176,6 +176,37 @@ Omitting patterns uses the compiler service default `./...`. Values must be
 trimmed; invalid settings fail closed without replacing the last complete
 metadata result.
 
+## Project Model and View extension plan
+
+The accepted Spice Views program adds these Toolchain-owned custom requests:
+
+```text
+spice/projectModel
+spice/viewForDocument
+spice/documentForView
+spice/createDeclaration
+spice/moveDeclaration
+spice/renameDeclaration
+spice/dependencySearch
+spice/dependencyAdd
+spice/workspaceStatus
+```
+
+They consume the same deterministic `spice.project-model/v1alpha1` contract as
+the CLI and editor project trees. Diagnostics retain canonical source position,
+View display position, stable code, source set, View identity, and Go package
+identity. GoLand and the first VS Code Explorer open physical documents from
+View nodes, so their native gopls/Delve integrations do not require a virtual
+Go package tree.
+
+A gopls process launched inside a fully projected agent workspace is instead a
+brokered `spice lsp --view-workspace --delegate-gopls` process. It translates
+View document URIs to canonical physical URIs, forwards Go requests to real
+gopls and Spice requests to the compiler service, and maps diagnostics, edits,
+navigation, and references back to View URIs. This proxy is a later agent
+milestone; publishing the core schema does not make these requests available
+in the current Toolchain release.
+
 ## Protocol and resource boundaries
 
 The stdlib-only transport bounds a message at 16 MiB, a header line at 8 KiB,

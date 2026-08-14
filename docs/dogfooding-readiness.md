@@ -30,7 +30,7 @@ dogfooding does not pretend they are runtime-managed beans.
 
 The toolchain repository's complete gate must:
 
-1. build stage zero with Go 1.26.5, `-trimpath`, and offline product inputs;
+1. build stage zero with Go 1.26.6, `-trimpath`, and offline product inputs;
 2. reject generated-application dependencies in the stage-zero graph;
 3. verify the committed production target and its source mirrors are fresh;
 4. build the stage-one CLI as a complete package, never a temporary source

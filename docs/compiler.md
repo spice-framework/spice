@@ -100,7 +100,7 @@ driver and returns `context.Canceled`.
 
 ## Dependency and offline policy
 
-Spice requires Go 1.26.5 and pins `golang.org/x/tools v0.48.0`. The dependency is BSD-3-Clause licensed and remains isolated behind `compiler/load` so upgrades stay controlled.
+Spice requires Go 1.26.6 and pins `golang.org/x/tools v0.48.0`. The dependency is BSD-3-Clause licensed and remains isolated behind `compiler/load` so upgrades stay controlled.
 
 The repository commits the standard output of `go mod vendor`. The local quality gate proves offline product execution with:
 

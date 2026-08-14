@@ -18,17 +18,19 @@ owned by named types, constructor injection, explicit module boundaries, and
 generated direct-call wiring. The separately versioned Toolchain owns the
 standalone structural analyzer and the typed Spice-aware verification phase;
 core owns the canonical contract, strict schema-two configuration semantics,
-stable diagnostic namespace, supplied-policy provenance, and descriptor
-inventory. Publishing that contract does not move analyzer, compiler, CLI, or
-LSP implementation into core.
+stable diagnostic namespace, supplied-policy provenance, descriptor inventory,
+and the declarative Spice Project Model schemas. Publishing those contracts
+does not move analyzer, compiler, CLI, LSP, project discovery, or projected
+workspace implementation into core.
 
 ## Repository boundaries
 
 | Repository | Ownership |
 | --- | --- |
-| `spice-framework/spice` | Public annotations, SDK/protocol, runtime contracts, test support, and starter-composition metadata |
-| `spice-framework/toolchain` | Compiler, generator, CLI, LSP, development supervisor, official annotation tool, bootstrap, release construction, and toolchain dogfooding |
-| `spice-framework/goland` | Native GoLand presentation, navigation, completion, Run/Debug, and installed-IDE acceptance |
+| `spice-framework/spice` | Public annotations, SDK/protocol, runtime contracts, test support, Project Model/configuration schemas, and starter-composition metadata |
+| `spice-framework/toolchain` | Compiler, generator, CLI, LSP, project discovery/model construction, dependency synchronization, projected workspaces, development supervisor, official annotation tool, bootstrap, release construction, and toolchain dogfooding |
+| `spice-framework/goland` | Native GoLand presentation, Spice Project View, navigation, completion, Run/Debug, and installed-IDE acceptance |
+| `spice-framework/vscode` | Spice Explorer, LSP client, View operations, terminal profile, dependency UI, and editor acceptance |
 | `spice-framework/zed` | Secondary Zed/LSP adapter |
 | `spice-framework/starter-*` | Independently versioned external-system adapters and real-service verification |
 | `spice-framework/petclinic` and `commerce` | Reference applications and black-box developer-workflow acceptance |
@@ -40,7 +42,7 @@ run with ordinary Go plus the public core and selected starter modules.
 
 ## Core package model
 
-The core module is standard-library-only and has four public layers:
+The core module is standard-library-only and has five public layers:
 
 1. `annotation/**` defines canonical declaration descriptors, the public SDK,
    the versioned process protocol, and test helpers for extension authors.
@@ -50,7 +52,10 @@ The core module is standard-library-only and has four public layers:
 3. Capability packages such as `web`, `data`, `event`, `mail`,
    `messaging`, `schedule`, `cache`, and `management` provide
    standard-library-first runtime behavior.
-4. `spicetest` and SDK test packages provide black-box application,
+4. `project` and `project/schema` define valid-Go declarative configuration,
+   deterministic module metadata, complete/agent Project Model wire types, and
+   stable schema identities without owning discovery or workspace behavior.
+5. `spicetest` and SDK test packages provide black-box application,
    annotation, HTTP, SQL, and generated-context testing seams.
 
 Optional external clients do not enter this module. The small `starter`
@@ -108,6 +113,41 @@ contributions that the compiler validates generically.
 The LSP, CLI, development supervisor, and GoLand plugin consume the same
 analysis service. Editor presentation may fold the physical `// ` prefix, but
 must never alter the document bytes that Go tools compile.
+
+## Project Model and Spice Views
+
+The separately versioned Toolchain builds one immutable Project Model from
+statically decoded `settings.spice.go`, `build.spice.go`, optional catalog/local
+configuration, the loaded Go program, resolved annotations, resources, tests,
+dependencies, targets, and generated ownership. The model is the only project
+discovery input to CLI, LSP, editors, projected workspaces, agents, scaffolds,
+dependency synchronization, and View architecture verification.
+
+Core publishes `spice.project-model/v1alpha1` and the canonical-path-free
+`spice.project-model.agent/v1alpha1` wire contracts. Model paths are
+slash-separated and project-relative, mappings are reversible, and duplicate
+canonical or View paths after case folding are rejected. Absolute checkout
+paths, timestamps, random data, and host metadata never enter deterministic
+model output.
+
+Spice Views present `src/main/go`, `src/test/go`, resource roots, and
+`build/generated/spice` without redefining source identity. Canonical identity
+remains the Go module/import path and symbol; Go packages remain real
+architecture boundaries; ordinary Go imports remain ordinary imports; and
+`// @import` remains annotation-only. The physical checkout remains directly
+buildable and debuggable Go.
+
+`spice shell` is a Toolchain adapter around the user's real shell. Its portable
+provider materializes real session files and reconciles them through one
+session daemon, journal, and writable lease. A shared command broker maps Go,
+Git, gopls, diagnostics, and semantic refactors through the Project Model. It
+is a developer-experience projection, not a security boundary. Optional ProjFS
+or FUSE providers may later implement the same local authenticated workspace
+protocol; neither is required for correctness.
+
+The accepted contracts and implementation phases are described in
+[`docs/project-model.md`](docs/project-model.md) and
+[`docs/spice-views.md`](docs/spice-views.md).
 
 ## Dependency injection
 
@@ -180,12 +220,12 @@ service before it is presented as supported.
 
 The core verifier enforces:
 
-- exact Go 1.26.5;
+- exact Go 1.26.6;
 - goimports and gofumpt;
 - root and tools `go mod tidy -diff`;
 - a standard-library-only root graph and reproducibly empty vendor result;
 - vet, allowlisted golangci-lint, NilAway, gosec, and govulncheck;
-- one combined shuffled race/coverage pass across exactly 51 public packages;
+- one combined shuffled race/coverage pass across exactly 54 public packages;
 - at least 85% aggregate public-source coverage;
 - bounded parser/decoder fuzz smoke and offline public-package tests;
 - API maturity, Spring coverage, documentation, namespace, package-direction,

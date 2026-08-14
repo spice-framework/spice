@@ -1,7 +1,7 @@
 # Engineering quality
 
 Spice treats verification as part of each repository's public contract. This
-core module requires Go 1.26.5 and a Go-owned verifier that behaves the same
+core module requires Go 1.26.6 and a Go-owned verifier that behaves the same
 from PowerShell, Linux, and macOS.
 
 ## Core commands
@@ -28,7 +28,7 @@ commands remain useful while working within one known package.
 
 The complete gate does not run separate broad ordinary, race, and coverage
 suites: one shuffled race-enabled invocation proves all three outcomes and
-computes aggregate coverage across exactly 52 public packages.
+computes aggregate coverage across exactly 54 public packages.
 
 ## Pinned tools
 

@@ -1,6 +1,8 @@
 /spice
 /bin/
 /dist/
+/.spice/cache/
+/local.spice.go
 /coverage.out
 /out/
 /editors/zed/target/

@@ -25,7 +25,7 @@ On an empty module cache, `make tools-bootstrap` first copies the committed
 `tools/go.mod` and `tools/go.sum` into an external temporary `tools.mod` and
 `tools.sum`, downloads only that exact public graph, and proves the repository
 bytes did not change. It must then pass `make verify-release` with network
-resolution disabled under Go 1.26.5. That command is an unconditional alias for
+resolution disabled under Go 1.26.6. That command is an unconditional alias for
 the complete core `make verify` contract. The reusable workflow additionally
 requires a canonical SemVer tag at the exact checked-out commit, a clean tree,
 public `spice-framework` ownership, the canonical module identity, and ancestry

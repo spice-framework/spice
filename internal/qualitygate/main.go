@@ -30,8 +30,8 @@ import (
 const (
 	modulePath                 = "github.com/spice-framework/spice"
 	officialToolchainPath      = "github.com/spice-framework/toolchain"
-	expectedGoVersion          = "go1.26.5"
-	expectedPublicPackageCount = 52
+	expectedGoVersion          = "go1.26.6"
+	expectedPublicPackageCount = 54
 	minimumCoverage            = 85.0
 )
 

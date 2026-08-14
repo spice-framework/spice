@@ -12,12 +12,28 @@ Spice should cover valuable Spring Boot outcomes but implement them with Go-nati
 
 A new developer should receive:
 
-- Clear project structure.
+- A clear Spice View structure backed by ordinary synchronized Go source.
 - Strong defaults.
 - Source-positioned diagnostics.
 - Generated code that can be inspected.
 - One verification command.
 - Examples that actually execute.
+
+## Keep one semantic identity
+
+Go module paths, package import paths, and Go symbols are canonical. Spice
+Views, source sets, roles, and editor labels improve presentation and
+architecture feedback without adding a language namespace, redefining imports,
+or changing debugger identity. Every project-aware adapter consumes one
+deterministic Project Model rather than rediscovering the repository.
+
+## Use the developer's real tools
+
+Projected workspaces must work with ordinary shells, editors, file APIs, Go,
+Git, and debuggers. Spice may map paths, broker package-sensitive commands, and
+offer semantic refactors, but it does not replace shell syntax, the Go
+compiler, or the Go module resolver. Physical Go workflows remain the explicit
+escape hatch and compatibility gate.
 
 ## Keep escape hatches explicit
 

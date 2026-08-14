@@ -121,6 +121,12 @@ internal/spicegen/<target>/artifacts/openapi.json   # when controllers exist
 .spice/<target>.manifest.json
 ```
 
+The standard Spice View presents the target below
+`build/generated/spice/<target>/` as read-only generated source. This changes
+only presentation: the canonical importable package, manifest identity, source
+positions, direct calls, and physical Go build remain exactly those shown
+above. See [`spice-views.md`](spice-views.md).
+
 There is deliberately no catch-all generated file. Contracts, configuration,
 provider-graph construction, phase assembly, optional features, HTTP
 coordination, lifecycle methods, and process commands each have one named

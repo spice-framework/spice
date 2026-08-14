@@ -34,6 +34,8 @@ The intended preview surface is deliberately narrow:
 - annotation syntax, descriptors, the public SDK/protocol, and SDK test tools;
 - dependency handles and lifecycle;
 - configuration, conversion, validation, resources, and bounded expressions;
+- valid-Go project configuration, deterministic module metadata, and Project
+  Model schema contracts;
 - core web, management, security, data, mail, interception, and `spicetest`
   contracts;
 - instance-owned structured logging records, handlers, scoped level control,
@@ -44,6 +46,11 @@ migrations, observability adapters, retry, scheduling, sessions, views, and
 every external-service starter remain experimental. Their implementation and
 tests are useful evidence, but they do not receive a support claim until their
 own repository and release matrix satisfy ADR 0012.
+
+The `project` contracts are experimental during the first Toolchain,
+Petclinic, and GoLand vertical implementation. Core publishing the declarations
+and wire types does not imply that static decoding, dependency synchronization,
+workspace projection, or editor integration is already available.
 
 Compiler packages, executable entrypoints, generated application targets, and
 reference applications live in separate modules and are not core APIs. The

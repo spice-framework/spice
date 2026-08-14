@@ -6,7 +6,7 @@ only the comment prefix for presentation.
 
 ## Prerequisites
 
-- Go 1.26.5;
+- Go 1.26.6;
 - the packaged Spice plugin installed in the pinned GoLand 2026.2 build;
 - [`spice-framework/petclinic`](https://github.com/spice-framework/petclinic)
   cloned and opened at its module root;
@@ -108,7 +108,7 @@ go test -run TestNotifierDeliversInspectableTestReceipt ./notifications
 Petclinic's `make verify` runs its black-box development workflow in normal,
 race, and vendor-offline modes alongside its 85% business coverage floor,
 generated freshness, and all three executable targets. Core's `make verify`
-independently runs the framework compiler/runtime gates under Go 1.26.5. The
+independently runs the framework compiler/runtime gates under Go 1.26.6. The
 independently versioned
 [`spice-framework/goland`](https://github.com/spice-framework/goland)
 repository separately requires packaged-plugin verification and installed-IDE

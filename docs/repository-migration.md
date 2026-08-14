@@ -14,7 +14,7 @@ evidence; repository creation alone never completes a stage.
 - Target organization: `github.com/spice-framework`.
 - The target organization is active and the maintainer has organization
   administration access.
-- Go 1.26.5 is the mandatory migration toolchain.
+- Go 1.26.6 is the mandatory migration toolchain.
 - The existing untracked `.tmp`, ignored `bin`, and ignored `out` trees are
   local reproducible artifacts, not migration inputs.
 

@@ -59,7 +59,8 @@ This profile does not introduce or encourage:
 - bean lookup by string;
 - field or setter injection;
 - package scanning at runtime;
-- Maven-style `src/main/go` and `src/test/go` directories;
+- treating projected `src/main/go` and `src/test/go` View groups as physical
+  Go package identity;
 - exceptions in place of Go errors;
 - a fake class hierarchy around standard-library values;
 - empty “utility classes” used only to satisfy a rule;
@@ -776,7 +777,8 @@ Do not use panic for expected application failures.
 
 ## 17. Package by feature and Spice module
 
-The default repository structure is package-by-feature.
+The canonical physical repository structure is package-by-feature and remains
+directly usable by ordinary Go tools.
 
 ```text
 .
@@ -818,16 +820,33 @@ The default repository structure is package-by-feature.
 └── CODE_STYLE.md
 ```
 
-Do not introduce:
+Spice developers normally navigate the same declarations through the standard
+project View:
 
 ```text
-src/main/go
-src/test/go
-internal/controllers
-internal/services
-internal/repositories
-internal/models
+src/main/go/<feature>/domain
+src/main/go/<feature>/application
+src/main/go/<feature>/persistence
+src/main/go/<feature>/web
+src/main/go/<feature>/configuration
+src/main/go/<feature>/events
+src/test/go/<feature>/<role>
+src/main/resources
+src/test/resources
+build/generated/spice
 ```
+
+These are projected paths backed by the canonical `cmd/`, `internal/`,
+resource, and `internal/spicegen/` files. A View path does not create a Go
+package or semantic namespace. Canonical type identity remains the Go module,
+import path, and symbol. Go packages remain coarse feature/module boundaries;
+the View role is a finer organization and architecture classification inside
+that package.
+
+Do not introduce physical global layer packages such as
+`internal/controllers`, `internal/services`, `internal/repositories`, or
+`internal/models`. Do not move canonical Go packages under View role
+directories merely to imitate the presentation tree.
 
 ### 17.1 Module root
 
@@ -951,6 +970,10 @@ Generated Spice source MUST:
 - never be manually edited;
 - remain covered by the Spice ownership manifest;
 - be excluded from handwritten structural rules.
+
+The normal View presents these files below `build/generated/spice/<target>` as
+read-only nodes. The View mapping never changes their canonical Go package,
+ownership manifest, source positions, or direct physical Go usability.
 
 ---
 
@@ -1937,6 +1960,16 @@ Primary unit test:
 order_service_test.go
 ```
 
+The corresponding normal View paths are:
+
+```text
+src/main/go/orders/application/OrderService.go
+src/test/go/orders/application/OrderServiceTest.go
+```
+
+View filenames are display identities derived from the primary symbol; the
+canonical physical files retain the required initialism-aware snake case.
+
 Rules:
 
 - test files may contain Go-required package functions;
@@ -2249,8 +2282,12 @@ go tool github.com/spice-framework/toolchain/cmd/spice verify \
 ```
 
 Run the standalone structural analyzer beside `spice verify`; the latter owns
-the typed Spice-aware phase. Both commands MUST decode the same immutable
-`.spice/style.json` configuration through one Toolchain-owned decoder. Neither
+the typed Spice-aware phase. During the compatibility period both commands
+MUST decode the same immutable schema-two `.spice/style.json` configuration
+through one Toolchain-owned decoder. New projects instead place the same
+policy exceptions and source/build intent in statically decoded
+`build.spice.go`; the Toolchain must translate both surfaces to one immutable
+internal policy and must never merge contradictory values silently. Neither
 phase may reinterpret the schema, silently ignore a field, or accept an enabled
 rule for which the current Toolchain has registered no implementation. Both
 commands use the same `java-structured` profile identity and stable diagnostic
@@ -2260,7 +2297,10 @@ namespace.
 
 ## 51. Style configuration
 
-Use JSON to match Spice's existing manifest-oriented tooling and avoid configuration ambiguity.
+The schema-two JSON below is the strict legacy migration contract. It remains
+normative until the Toolchain migration line reads equivalent
+`build.spice.go` policy and `spice migrate project` has moved every official
+application. It is not generated for a new Spice Views application.
 
 ```json
 {
@@ -2811,7 +2851,9 @@ This would align transactions with application-service use cases while remaining
 
 **Priority: P1**
 
-Integrate the analyzer and `.spice/style.json` into the compiler service so CLI, LSP, GoLand, CI, and generation share one result.
+Integrate the analyzer and statically decoded `build.spice.go` policy into the
+compiler service so CLI, LSP, GoLand, CI, and generation share one result.
+Retain schema-two `.spice/style.json` only for the documented migration window.
 
 ### 57.6 Composed project stereotypes
 
@@ -3170,12 +3212,16 @@ Convert unclassified functions to receiver methods or real collaborating types.
 - typed events instead of global buses;
 - lifecycle methods instead of constructor goroutines.
 
-### Step 8 — Introduce `spicestyle` in report mode
+### Step 8 — Introduce style verification in report mode
 
 - emit all diagnostics;
 - create the initial exception inventory;
 - require reasons and issue IDs;
 - do not add new violations.
+
+Existing repositories may begin with schema-two `.spice/style.json`; new
+projects and migrated repositories store reviewed exceptions in
+`build.spice.go`.
 
 ### Step 9 — Fail changed-code violations
 

@@ -28,7 +28,7 @@ behavior are separate explicit steps.
 1. Start from a clean worktree and preserve the current generated files.
 2. Run the current `spice generate --check` and application tests.
 3. Read the target release notes and this guide for hard cuts or migrations.
-4. Confirm the required Go toolchain. The current line requires Go 1.26.5.
+4. Confirm the required Go toolchain. The current line requires Go 1.26.6.
 
 Do not delete `.spice/*.manifest.json` to force an upgrade. The manifests are
 the proof of generated ownership and let Spice distinguish a stale file from a

@@ -143,6 +143,11 @@
       "reason": "Observation adapter contracts require exporter compatibility evidence."
     },
     {
+      "prefix": "project",
+      "maturity": "experimental",
+      "reason": "Project configuration, module metadata, and Project Model schemas require Toolchain and reference-application adoption evidence."
+    },
+    {
       "prefix": "resource",
       "maturity": "preview-stable",
       "reason": "Instance-owned bounded fs.FS resource loading contract."

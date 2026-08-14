@@ -78,7 +78,7 @@ The final reference workflow now composes the accepted contracts:
 
 ## Reproduction
 
-From the core repository root with Go 1.26.5, then from a checkout of the
+From the core repository root with Go 1.26.6, then from a checkout of the
 independent [`commerce`](https://github.com/spice-framework/commerce) module:
 
 ```text

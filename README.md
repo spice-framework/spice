@@ -281,7 +281,7 @@ closed by application code—there is no global session registry.
 
 ## Run it
 
-Install Go 1.26.5 and GNU Make, then run:
+Install Go 1.26.6 and GNU Make, then run:
 
 New users should begin with the executable
 [`getting-started.md`](docs/getting-started.md) walkthrough. Spring developers
@@ -391,6 +391,14 @@ editor clients is documented in
 The stdio language server, versioned diagnostics, annotation/configuration
 completion, hover, safe code actions, and workspace settings are documented in
 [`docs/lsp.md`](docs/lsp.md).
+
+Valid-Go `settings.spice.go` and `build.spice.go`, deterministic Project Model
+and module-metadata schemas, dependency synchronization boundaries, and the
+phased ecosystem implementation are documented in
+[`docs/project-model.md`](docs/project-model.md). The standard View tree,
+reversible identity mapping, real-shell projection, Go/Git broker, editor, and
+coding-agent contracts are documented in
+[`docs/spice-views.md`](docs/spice-views.md).
 
 The primary GoLand plugin, exact prefix concealment, native color settings,
 PSI navigation, language-server setup, installable archive, and repeatable
@@ -566,11 +574,14 @@ lifecycle/HTTP observers, writers, loggers, and shutdown timing.
   standard-library-first application capabilities.
 - `spicetest/`: black-box support for generated application contexts and
   focused HTTP/SQL tests.
+- `project/`: declarative project configuration, module metadata, deterministic
+  full/agent Project Model wire contracts, and stable schema identities.
 - `starter/`: portable starter-composition metadata, not external clients.
 - `internal/qualitygate/`: the repository verifier and the only retained
   internal implementation package.
 - [`spice-framework/toolchain`](https://github.com/spice-framework/toolchain):
-  independently versioned compiler, generator, CLI, LSP, development loop,
+  independently versioned compiler, generator, CLI, LSP, project discovery,
+  dependency synchronization, projected workspaces, development loop,
   bootstrap, annotation tool, release construction, and toolchain dogfooding.
 - [`spice-framework/goland`](https://github.com/spice-framework/goland):
   primary installed-IDE integration and visual/interaction acceptance.

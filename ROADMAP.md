@@ -41,6 +41,29 @@ slice remains Toolchain-owned: its decoder, standalone analyzer, compiler
 service, CLI, LSP, and scaffold output must consume that contract before
 applications adopt schema two.
 
+The next ecosystem platform slice is the Project Model and Spice Views program
+accepted by ADRs 0015 through 0022. Core now publishes the valid-Go project
+configuration declarations, `spice.module.json` contract, deterministic full
+and agent-safe Project Model wire types, and stable schema identities. The
+Toolchain remains the sole owner of static decoding, model construction, View
+inference, dependency synchronization, projected workspace implementation,
+command brokering, refactors, and LSP translation. Canonical identity remains
+the Go module/import path and symbol; View paths are reversible presentation
+metadata, ordinary imports remain Go imports, and annotation imports remain
+annotation-only.
+
+Delivery is deliberately vertical before it is broad. The first proof spans
+core, Toolchain, Petclinic, and GoLand: `settings.spice.go` plus
+`build.spice.go` produce one deterministic Project Model, a read-only Spice
+Project View, a materialized `spice shell`, View-aware `go test` and `git diff`,
+and a native physical-source breakpoint. Spice Agent coding tools join only
+after this mapping is proven. Commerce, starters, other Agent modules, VS Code,
+organization workflows, and documentation migrate in compatibility waves.
+ProjFS and FUSE remain optional final-phase providers, never prerequisites for
+the portable materialized projection. The complete configuration, phase, and
+acceptance contracts are in [`docs/project-model.md`](docs/project-model.md)
+and [`docs/spice-views.md`](docs/spice-views.md).
+
 ## Current developer-proof priority
 
 The developer-proof milestone now composes one complete workflow: a minimal
@@ -319,6 +342,23 @@ byte-identical regeneration, rejects corruption, and proves recovery.
 - Starter SDK and third-party annotation SDK.
 - Shared overlay analysis, language server, primary GoLand integration, and
   supported Zed integration.
+
+## M5 — Project Model and Spice Views
+
+- Public project configuration, Project Model, module metadata, and workspace
+  schema contracts.
+- Toolchain static decoder, deterministic model, dependency synchronization,
+  View inference, and migration command.
+- Read-only GoLand Spice Project View backed by physical source navigation.
+- Portable materialized `spice shell` with one writable lease, journal,
+  recovery, and Go/Git command broker.
+- Semantic create, move, rename, import, dependency, and architecture
+  operations over View paths.
+- Spice Agent resolver integration and canonical-path-free project context.
+- VS Code Spice Explorer and bounded Zed View presentation.
+- Petclinic vertical acceptance followed by Commerce scale acceptance and
+  ecosystem migration.
+- Optional ProjFS and FUSE providers only after portable correctness is green.
 
 ## Release gates
 

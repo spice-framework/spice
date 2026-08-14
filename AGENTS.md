@@ -22,7 +22,7 @@ At the start of a session:
 1. Fetch the latest repository state and confirm the current branch and worktree status.
 2. Read this file, `ARCHITECTURE.md`, `ROADMAP.md`, `docs/spring-coverage.md`, and relevant RFCs/ADRs.
 3. Reconcile open local work and recent commits before beginning a new slice.
-4. Confirm `go version` is exactly Go 1.26.5.
+4. Confirm `go version` is exactly Go 1.26.6.
 
 ## Required implementation behavior
 
@@ -44,7 +44,7 @@ For every product change:
 
 `make verify` is repository-owned and cross-platform. It enforces:
 
-- Go 1.26.5;
+- Go 1.26.6;
 - goimports and gofumpt formatting;
 - `go mod tidy -diff` for the product and tools modules;
 - mechanically reproducible vendor contents;
