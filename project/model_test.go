@@ -3,6 +3,7 @@ package project_test
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -103,6 +104,24 @@ func TestProjectModelPathMappingIsBijective(t *testing.T) {
 	}
 }
 
+func TestProjectModelAllowsPlannedGeneratedTargetBeforeGeneration(t *testing.T) {
+	t.Parallel()
+
+	model := validProjectModel()
+	model.Packages = slices.DeleteFunc(model.Packages, func(record project.PackageRecord) bool {
+		return record.GoPackagePath == model.Targets[0].GeneratedGoPackagePath
+	})
+	model.Files = slices.DeleteFunc(model.Files, func(record project.FileRecord) bool {
+		return record.GoPackagePath == model.Targets[0].GeneratedGoPackagePath
+	})
+	model.Views = slices.DeleteFunc(model.Views, func(record project.ViewRecord) bool {
+		return record.GoPackagePath == model.Targets[0].GeneratedGoPackagePath
+	})
+	if _, err := project.NewProjectModel(model); err != nil {
+		t.Fatalf("NewProjectModel(planned generated target) error = %v", err)
+	}
+}
+
 func TestParseProjectModelRejectsJSONBoundaries(t *testing.T) {
 	t.Parallel()
 
@@ -197,9 +216,9 @@ func TestProjectModelRejectsInvalidContracts(t *testing.T) {
 		{"target name", func(value *project.ProjectModel) { value.Targets[0].Name = "Bad" }, "invalid name"},
 		{"target package", func(value *project.ProjectModel) { value.Targets[0].GoPackagePath = "example.com/missing" }, "unknown Go package"},
 		{"target generated", func(value *project.ProjectModel) { value.Targets[0].GeneratedGoPackagePath = "../bad" }, "generated Go package"},
-		{"target generated package", func(value *project.ProjectModel) {
-			value.Targets[0].GeneratedGoPackagePath = "example.com/commerce/internal/spicegen/missing"
-		}, "unknown generated Go package"},
+		{"target generated external", func(value *project.ProjectModel) {
+			value.Targets[0].GeneratedGoPackagePath = "example.net/generated/commerce"
+		}, "generated Go package"},
 		{"target duplicate", func(value *project.ProjectModel) { value.Targets = append(value.Targets, value.Targets[0]) }, "target"},
 	}
 	for _, test := range tests {

@@ -236,7 +236,9 @@ The model validates:
 - every file's package and source set exist;
 - generated files are read-only and in the generated source set;
 - dependencies have exact resolved Go modules and versions;
-- targets refer to known Go packages;
+- targets refer to known handwritten Go entry packages; a declared generated
+  package may be absent before first generation but must remain inside the
+  project module;
 - all output collections have canonical ordering.
 
 The agent schema is:

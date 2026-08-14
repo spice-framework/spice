@@ -303,7 +303,7 @@ func validateProjectModel(model ProjectModel) error {
 	if err := validateResolvedDependencies(model.Dependencies); err != nil {
 		return err
 	}
-	return validateModelTargets(model.Targets, packages)
+	return validateModelTargets(model.Targets, packages, model.Project.Module)
 }
 
 func validateAgentProjectModel(model AgentProjectModel) error {
@@ -330,7 +330,7 @@ func validateAgentProjectModel(model AgentProjectModel) error {
 	if err := validateResolvedDependencies(model.Dependencies); err != nil {
 		return err
 	}
-	return validateModelTargets(model.Targets, packages)
+	return validateModelTargets(model.Targets, packages, model.Project.Module)
 }
 
 func validateProjectIdentity(identity ProjectIdentity) error {
@@ -594,7 +594,7 @@ func validateResolvedDependency(dependency ResolvedDependency) error {
 	return nil
 }
 
-func validateModelTargets(targets []TargetRecord, packages map[string]string) error {
+func validateModelTargets(targets []TargetRecord, packages map[string]string, projectModule string) error {
 	seen := make(map[string]struct{}, len(targets))
 	for _, target := range targets {
 		if !portableNamePattern.MatchString(target.Name) || !validKind(target.Kind) {
@@ -604,11 +604,9 @@ func validateModelTargets(targets []TargetRecord, packages map[string]string) er
 			return fmt.Errorf("project model target %q references unknown Go package %q", target.Name, target.GoPackagePath)
 		}
 		if target.GeneratedGoPackagePath != "" {
-			if !validModulePath(target.GeneratedGoPackagePath) {
+			if !validModulePath(target.GeneratedGoPackagePath) ||
+				!strings.HasPrefix(target.GeneratedGoPackagePath, projectModule+"/") {
 				return fmt.Errorf("project model target %q generated Go package is invalid", target.Name)
-			}
-			if _, exists := packages[target.GeneratedGoPackagePath]; !exists {
-				return fmt.Errorf("project model target %q references unknown generated Go package %q", target.Name, target.GeneratedGoPackagePath)
 			}
 		}
 		if _, duplicate := seen[target.Name]; duplicate {
